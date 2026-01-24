@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-import rag_engine  # This is your file with the safety logic
+from backend import rag_engine
 
 # --- CONFIGURATION (From TELUS PDF Page 12) ---
 # We use the standard /v1/chat/completions endpoint for Gemma

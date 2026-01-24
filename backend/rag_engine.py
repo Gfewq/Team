@@ -1,7 +1,7 @@
 import re
 import numpy as np
 from sentence_transformers import SentenceTransformer
-from knowledge_base import SAFETY_PROTOCOLS
+from .knowledge_base import SAFETY_PROTOCOLS
 
 # --- SETUP (Runs once) ---
 print("⬇️  Loading Local AI Model (all-MiniLM-L6-v2)...")

@@ -23,5 +23,11 @@ SAFETY_PROTOCOLS = [
         "id": 4,
         "situation": "Routine check-in, levels are normal/stable.",
         "instruction": "Be playful. Suggest a game or ask about their day. Celebrate the 'perfect score'."
+    },
+    # Example of adding NON-GLUCOSE data
+    {
+    "id": 5,
+    "situation": "Oxygen LOW asthma breathing hard wheezing",
+    "instruction": "URGENT: Leo is tired and needs to rest. Ask for the 'Air Potion' (Inhaler)."
     }
 ]

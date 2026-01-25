@@ -1,15 +1,13 @@
 fastapi
 uvicorn
-<<<<<<< Updated upstream
+
 pydantic
 python-dotenv
 httpx
-=======
-httpx
-python-dotenv
+
 streamlit
 requests
 sentence-transformers
->>>>>>> Stashed changes
+
 numpy
 scikit-learn

@@ -119,8 +119,8 @@
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-team/leo-the-lion.git
-cd leo-the-lion
+git clone https://github.com/Gfewq/Team.git
+cd Team
 ```
 
 ### 2. Set Up Environment Variables

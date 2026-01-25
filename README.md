@@ -57,7 +57,27 @@
 ## 🏗️ Technical Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐ │ FRONTEND (React + TS) │ │ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────────┐ │ │ │Kid Mode │ │Parent │ │Leo Chat │ │Voice Input │ │ │ │ (Game) │ │Dashboard│ │(Stream) │ │(Web Speech API) │ │ │ └────┬────┘ └────┬────┘ └────┬────┘ └────────┬────────┘ │ └───────┼────────────┼───────────┼─────────────────┼──────────┘ │ │ │ │ ▼ ▼ ▼ ▼ ┌─────────────────────────────────────────────────────────────┐ │ BACKEND (FastAPI + Python) │ │ ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐ │ │ │Health Sim │ │Chat Memory │ │Child Profiles │ │ │ │(Real-time) │ │(Per-child) │ │(JSON Storage) │ │ │ └──────┬───────┘ └──────┬───────┘ └────────┬─────────┘ │ │ │ │ │ │ │ ▼ ▼ ▼ │ │ ┌─────────────────────────────────────────────────────────┐│ │ │ 🧠 BRAIN SERVICE ││ │ │ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ││ │ │ │ DeepSeek │ │ Gemma 3 │ │ Local RAG │ ││ │ │ │ (Analysis) │ │ (Responses) │ │ (Safety) │ ││ │ │ └─────────────┘ └─────────────┘ └─────────────┘ ││ │ └─────────────────────────────────────────────────────────┘│ └─────────────────────────────────────────────────────────────┘
+FRONTEND (React + TypeScript)
+--------------------------------
+- Kid Mode (Game UI)
+- Parent Dashboard
+- Leo Chat (Streaming)
+- Voice Input (Web Speech API)
+        |
+        v
+BACKEND (FastAPI + Python)
+--------------------------------
+- Health Simulator (Real-time)
+- Chat Memory (Per-child)
+- Child Profiles (JSON Storage)
+        |
+        v
+AI BRAIN SERVICE
+--------------------------------
+- DeepSeek (Health Analysis)
+- Gemma 3 (Kid-Friendly Responses)
+- Local RAG (Medical Safety)
+
 ```
 
 ```

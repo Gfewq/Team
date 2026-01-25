@@ -58,3 +58,76 @@
     height: 325px;
   }
 }
+
+.leo-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.leo-avatar {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* CRITICAL: This makes the SVG visible! */
+.leo-svg {
+  width: 380px;  /* Made him slightly bigger */
+  height: 450px;
+  filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.2));
+  transition: all 0.3s ease;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
+/* --- ANIMATIONS --- */
+.pupil {
+  animation: look 5s ease-in-out infinite;
+}
+
+@keyframes look {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(3px); }
+  70% { transform: translateX(-3px); }
+}
+
+.tail {
+  transform-origin: 185px 240px;
+  animation: waggle 3s ease-in-out infinite;
+}
+
+@keyframes waggle {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(10deg); }
+}
+
+/* --- SPEAKING LOGIC --- */
+/* Default: Mouth Closed */
+.mouth-closed { opacity: 1; transition: opacity 0.1s; }
+.mouth-open { opacity: 0; transition: opacity 0.1s; }
+
+/* When Speaking: Open Mouth & Fast Tail */
+.leo-avatar.speaking .mouth-closed {
+  opacity: 0;
+}
+.leo-avatar.speaking .mouth-open {
+  opacity: 1;
+  animation: talk 0.2s infinite alternate;
+}
+.leo-avatar.speaking .tail {
+  animation: waggle 0.5s ease-in-out infinite; 
+}
+
+@keyframes talk {
+  from { transform: translateY(0); }
+  to { transform: translateY(2px); }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .leo-svg { width: 280px; height: 340px; }
+}

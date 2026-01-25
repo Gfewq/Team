@@ -1,133 +1,113 @@
-import { useState, useRef, useEffect } from 'react'
-import './ChatBox.css'
-
-interface Message {
-  text: string
-  sender: 'user' | 'leo'
-}
+import { useState, useRef, useEffect } from 'react';
+import './ChatBox.css';
 
 interface ChatBoxProps {
-  onSendMessage: (text: string) => void
-  messages: Message[]
+  onSpeakingStateChange: (isSpeaking: boolean) => void;
 }
 
-const ChatBox = ({ onSendMessage, messages }: ChatBoxProps) => {
-  const [inputText, setInputText] = useState('')
-  const [isListening, setIsListening] = useState(false)
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
+export default function ChatBox({ onSpeakingStateChange }: ChatBoxProps) {
+  const [messages, setMessages] = useState<{role: string, text: string}[]>([
+    { role: 'leo', text: "Hi! I'm Leo! How is your tummy feeling?" }
+  ]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    // Initialize Web Speech API
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition
-      if (SpeechRecognitionClass) {
-        const recognitionInstance = new SpeechRecognitionClass()
-        recognitionInstance.continuous = false
-        recognitionInstance.interimResults = false
-        recognitionInstance.lang = 'en-US'
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-        recognitionInstance.onresult = (event) => {
-          const transcript = event.results[0][0].transcript
-          setInputText(transcript)
-          setIsListening(false)
+  // Notify parent when typing state changes
+  useEffect(() => {
+    onSpeakingStateChange(isTyping);
+  }, [isTyping, onSpeakingStateChange]);
+
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+
+    const userMsg = input;
+    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setInput('');
+    setIsTyping(true); // <--- Triggers Lion Mouth Open
+
+    try {
+      const response = await fetch('http://localhost:8000/api/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: "demo_child",
+          message: userMsg,
+          age: 7,
+          condition: "diabetes" 
+        })
+      });
+
+      if (!response.body) throw new Error("No response body");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let leoReply = "";
+
+      setMessages(prev => [...prev, { role: 'leo', text: "..." }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.trim() === '') continue;
+          if (line.startsWith('data: ')) {
+            const text = line.replace('data: ', '').trim();
+            if (text === "[DONE]") break;
+            
+            try {
+              const parsed = JSON.parse(text); 
+              leoReply += parsed; 
+            } catch (e) {
+              leoReply += text.replace(/^"|"$/g, '');
+            }
+
+            setMessages(prev => {
+              const newMsg = [...prev];
+              newMsg[newMsg.length - 1].text = leoReply;
+              return newMsg;
+            });
+          }
         }
-
-        recognitionInstance.onerror = () => {
-          setIsListening(false)
-        }
-
-        recognitionInstance.onend = () => {
-          setIsListening(false)
-        }
-
-        setRecognition(recognitionInstance)
       }
+    } catch (e) {
+      console.error("Chat Error", e);
+    } finally {
+      setIsTyping(false); // <--- Triggers Lion Mouth Close
     }
-  }, [])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (inputText.trim()) {
-      onSendMessage(inputText)
-      setInputText('')
-      inputRef.current?.focus()
-    }
-  }
-
-  const handleVoiceInput = () => {
-    if (!recognition) {
-      alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.')
-      return
-    }
-
-    if (isListening) {
-      recognition.stop()
-      setIsListening(false)
-    } else {
-      recognition.start()
-      setIsListening(true)
-    }
-  }
+  };
 
   return (
-    <div className="chat-box">
-      <div className="messages-container">
-        {messages.length === 0 ? (
-          <div className="welcome-message">
-            <p>👋 Hi! I'm Leo the Lion. Let's chat!</p>
+    <div className="chat-container">
+      <div className="messages-list">
+        {messages.map((m, i) => (
+          <div key={i} className={`message-bubble ${m.role}`}>
+            {m.text}
           </div>
-        ) : (
-          messages.map((msg, index) => (
-            <div key={index} className={`message ${msg.sender}`}>
-              <div className="message-bubble">
-                <p>{msg.text}</p>
-              </div>
-            </div>
-          ))
-        )}
+        ))}
         <div ref={messagesEndRef} />
       </div>
-      
-      <form onSubmit={handleSubmit} className="chat-input-form">
-        <div className="input-wrapper">
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder="Type a message or use voice..."
-            className="chat-input"
-            disabled={isListening}
-          />
-          <button
-            type="button"
-            onClick={handleVoiceInput}
-            className={`voice-button ${isListening ? 'listening' : ''}`}
-            title={isListening ? 'Stop listening' : 'Start voice input'}
-            aria-label={isListening ? 'Stop listening' : 'Start voice input'}
-          >
-            {isListening ? '🛑' : '🎤'}
-          </button>
-        </div>
-        <button type="submit" className="send-button" disabled={!inputText.trim() && !isListening}>
-          Send
-        </button>
-      </form>
-      
-      {isListening && (
-        <div className="listening-indicator">
-          <span className="pulse"></span>
-          Listening...
-        </div>
-      )}
-    </div>
-  )
-}
 
-export default ChatBox
+      <div className="input-area">
+        <input 
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+          placeholder="Talk to Leo..."
+          disabled={isTyping}
+        />
+        <button onClick={sendMessage} disabled={isTyping}>
+          {isTyping ? '🦁' : '➤'}
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -53,27 +53,22 @@
 
 ## 🏗️ Technical Architecture
 
-```
-## 🏗️ Technical Architecture
-
-```
-FRONTEND (React + TypeScript)
---------------------------------
+### 🎨 Frontend (React + TypeScript)
 - Kid Mode (Game UI)
 - Parent Dashboard
 - Leo Chat (Streaming)
 - Voice Input (Web Speech API)
-        |
-        v
-BACKEND (FastAPI + Python)
---------------------------------
+
+⬇️ communicates with
+
+### ⚡ Backend (FastAPI + Python)
 - Health Simulator (Real-time)
 - Chat Memory (Per-child)
 - Child Profiles (JSON Storage)
-        |
-        v
-AI BRAIN SERVICE
---------------------------------
+
+⬇️ powered by
+
+### 🧠 AI Brain Service
 - DeepSeek (Health Analysis)
 - Gemma 3 (Kid-Friendly Responses)
 - Local RAG (Medical Safety)
@@ -81,8 +76,6 @@ AI BRAIN SERVICE
 ```
 
 ```
-
-
 
 ## 🤖 AI/ML Stack
 

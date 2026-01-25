@@ -259,6 +259,7 @@ Team/
 | Ujjawal Singh        | ujjawalsuii   |
 | Ishan Raj            | isr808        |
 | Natasha Krishnakanth | natashakk0602 |
+
 Built with ❤️ for TELUS Hackathon 2026
 ---
 

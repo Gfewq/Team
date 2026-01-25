@@ -1,0 +1,60 @@
+.leo-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.leo-avatar {
+  animation: float 3s ease-in-out infinite;
+}
+
+.leo-svg {
+  width: 320px;
+  height: 400px;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.15));
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Eyes look around */
+.pupil {
+  animation: look 4s ease-in-out infinite;
+}
+
+@keyframes look {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(2px); }
+  70% { transform: translateX(-2px); }
+}
+
+/* Tail waggling */
+.tail {
+  transform-origin: 185px 240px;
+  animation: waggle 0.8s ease-in-out infinite;
+}
+
+@keyframes waggle {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(10deg); }
+}
+
+/* Mouth - always show closed mouth */
+.mouth-closed {
+  opacity: 1;
+}
+
+.mouth-open {
+  opacity: 0;
+}
+
+@media (max-width: 768px) {
+  .leo-svg {
+    width: 260px;
+    height: 325px;
+  }
+}

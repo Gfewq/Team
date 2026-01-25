@@ -1,0 +1,215 @@
+.game-screen {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  /* Calm forest sky gradient - more sky visible */
+  background: linear-gradient(180deg, 
+    #87CEEB 0%,      /* Light sky blue */
+    #A8D8EA 20%,     /* Soft sky */
+    #B8E6CF 45%,     /* Light green hint */
+    #7CB987 70%,     /* Forest canopy green */
+    #5A9E6B 85%,     /* Deeper forest */
+    #4A8B5A 100%     /* Forest floor */
+  );
+  overflow: hidden;
+}
+
+/* Sun glow */
+.game-screen::before {
+  content: '';
+  position: absolute;
+  top: 60px;
+  right: 18%;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, 
+    rgba(255, 250, 205, 0.95) 0%, 
+    rgba(255, 230, 150, 0.7) 30%, 
+    rgba(255, 200, 100, 0.3) 60%,
+    transparent 75%
+  );
+  border-radius: 50%;
+  filter: blur(3px);
+  animation: sunGlow 4s ease-in-out infinite;
+  z-index: 1;
+}
+
+/* Ground/grass at bottom */
+.game-screen::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 25%;
+  background: linear-gradient(180deg, 
+    transparent 0%,
+    #6AAF6D 10%,
+    #5A9E6B 40%,
+    #4A8B5A 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes sunGlow {
+  0%, 100% { 
+    transform: scale(1); 
+    opacity: 0.9;
+  }
+  50% { 
+    transform: scale(1.15); 
+    opacity: 1;
+  }
+}
+
+.content-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 1200px;
+  padding: 2rem;
+  position: relative;
+  z-index: 5;
+}
+
+.avatar-section {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  position: relative;
+}
+
+/* Grass patch under Leo */
+.avatar-section::before {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  height: 60px;
+  background: 
+    /* Grass blades - front layer */
+    radial-gradient(ellipse 8px 20px at 10% 100%, #4CAF50 70%, transparent 71%),
+    radial-gradient(ellipse 6px 18px at 15% 100%, #66BB6A 70%, transparent 71%),
+    radial-gradient(ellipse 7px 22px at 22% 100%, #4CAF50 70%, transparent 71%),
+    radial-gradient(ellipse 5px 16px at 28% 100%, #81C784 70%, transparent 71%),
+    radial-gradient(ellipse 8px 20px at 35% 100%, #4CAF50 70%, transparent 71%),
+    radial-gradient(ellipse 6px 19px at 42% 100%, #66BB6A 70%, transparent 71%),
+    radial-gradient(ellipse 7px 21px at 50% 100%, #4CAF50 70%, transparent 71%),
+    radial-gradient(ellipse 5px 17px at 58% 100%, #81C784 70%, transparent 71%),
+    radial-gradient(ellipse 8px 20px at 65% 100%, #4CAF50 70%, transparent 71%),
+    radial-gradient(ellipse 6px 18px at 72% 100%, #66BB6A 70%, transparent 71%),
+    radial-gradient(ellipse 7px 22px at 78% 100%, #4CAF50 70%, transparent 71%),
+    radial-gradient(ellipse 5px 16px at 85% 100%, #81C784 70%, transparent 71%),
+    radial-gradient(ellipse 8px 20px at 92% 100%, #4CAF50 70%, transparent 71%),
+    /* Ground base */
+    ellipse 140px 25px at 50% 100%;
+  background-color: #5D8A66;
+  border-radius: 50%;
+  z-index: 0;
+}
+
+.dialogue-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-left: 1rem;
+  padding-top: 2rem;
+  position: relative;
+}
+
+.dialogue-box {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 1.5rem 2rem;
+  max-width: 350px;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Speech bubble pointer */
+.dialogue-box::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 30px;
+  border-width: 15px;
+  border-style: solid;
+  border-color: transparent rgba(255, 255, 255, 0.85) transparent transparent;
+}
+
+.dialogue-box p {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #333;
+  line-height: 1.6;
+  font-family: 'Comic Sans MS', 'Chalkboard', cursive, sans-serif;
+}
+
+/* Speech toggle button */
+.speech-toggle {
+  position: absolute;
+  bottom: -50px;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.speech-toggle.enabled {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.speech-toggle.disabled {
+  background: rgba(200, 200, 200, 0.7);
+}
+
+.speech-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.speech-toggle:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+  .content-wrapper {
+    flex-direction: column;
+    padding: 1rem;
+  }
+  
+  .dialogue-section {
+    padding-left: 0;
+    padding-top: 1rem;
+  }
+  
+  .dialogue-box {
+    max-width: 100%;
+  }
+  
+  .dialogue-box::before {
+    left: 50%;
+    top: -20px;
+    transform: translateX(-50%);
+    border-color: transparent transparent rgba(255, 255, 255, 0.85) transparent;
+  }
+}

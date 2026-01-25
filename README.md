@@ -130,6 +130,7 @@ cp .env.example .env
 
 # Add your API keys
 TELUS_API_BASE="https://3ca9s.paas.ai.telus.com"
+QWEN_API_KEY="your_qwen_key"
 GEMMA_API_KEY="your_gemma_key"
 DEEPSEEK_API_KEY="your_deepseek_key"
 ```

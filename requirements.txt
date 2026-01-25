@@ -1,15 +1,15 @@
+# Backend API
 fastapi
 uvicorn
-<<<<<<< Updated upstream
 pydantic
 python-dotenv
 httpx
-=======
-httpx
-python-dotenv
-streamlit
-requests
+
+# AI & ML
 sentence-transformers
->>>>>>> Stashed changes
 numpy
 scikit-learn
+
+# Optional - Streamlit demo
+streamlit
+requests

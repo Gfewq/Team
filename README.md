@@ -7,7 +7,8 @@
 
 <p align="center">
   <strong>TELUS Hackathon 2026 Submission</strong><br/>
-  Track 3: AI + Healthcare
+  Track 3: AI + Healthcare<br/><br/>
+  <em>by <strong>Team</strong></em>
 </p>
 
 <p align="center">
@@ -126,8 +127,8 @@
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-team/leo-the-lion.git
-cd leo-the-lion
+git clone https://github.com/Gfewq/Team.git
+cd Team
 ```
 
 ### 2. Set Up Environment Variables
@@ -247,7 +248,13 @@ Team/
 
 ## 👥 Team
 
-Built with ❤️ for TELUS Hackathon 2026
+**Team** - Built with ❤️ for TELUS Hackathon 2026
+
+| Member | GitHub |
+|--------|--------|
+| Ujjawal | [@ujjawalsuii](https://github.com/ujjawalsuii) |
+| Omar Abbasi | [@Gfewq](https://github.com/Gfewq) |
+| ISR | [@isr808](https://github.com/isr808) |
 
 ---
 

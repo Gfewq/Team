@@ -138,7 +138,7 @@ DEEPSEEK_API_KEY="your_deepseek_key"
 ### 3. Start the Backend
 ```bash
 # Install Python dependencies
-pip install -r requirements.txt
+python install -r requirements.txt
 
 # Run the FastAPI server
 python -m uvicorn backend.main:app --reload

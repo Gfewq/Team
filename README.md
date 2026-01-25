@@ -53,7 +53,7 @@
 
 ## 🏗️ Technical Architecture
 
-### 🎨 Frontend (React + TypeScript)
+### 🎨 Frontend (React + TypeScript + CSS)
 - Kid Mode (Game UI)
 - Parent Dashboard
 - Leo Chat (Streaming)

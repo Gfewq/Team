@@ -3,6 +3,7 @@ import ChatBox from './components/ChatBox';
 import LeoAvatar from './components/LeoAvatar'; 
 import MoodTracker, { MoodEntry } from './components/MoodTracker';
 import ParentDashboard from './components/ParentDashboard';
+import ChildSelector, { Child } from './components/ChildSelector';
 import './App.css';
 
 // 📊 Define the shape of our data (Matches Python Backend)
@@ -81,6 +82,7 @@ const MOOD_HISTORY_KEY = 'leo_mood_history';
 const CHAT_HISTORY_KEY = 'leo_chat_history';
 const HEALTH_LOGS_KEY = 'leo_health_logs';
 const ENGAGEMENT_KEY = 'leo_engagement';
+const MEDICATIONS_KEY = 'leo_medications';
 
 function App() {
   // 1. STATE: Health Stats & Speaking Logic
@@ -116,6 +118,22 @@ function App() {
   const [safetyStatus, setSafetyStatus] = useState<string>('SAFE');
   const [healthEvents, setHealthEvents] = useState<HealthEvent[]>([]);
   const [simulatorAlerts, setSimulatorAlerts] = useState<SimulatorAlert[]>([]);
+
+  // 8. STATE: Selected Child Profile
+  const [selectedChild, setSelectedChild] = useState<Child | null>(null);
+
+  // 9. STATE: Kid Mode (simplified UI) vs Parent mode toggle (for quick access)
+  const [isKidMode, setIsKidMode] = useState(true);
+
+  // 10. STATE: Medications (persisted)
+  const [medications, setMedications] = useState<{type: string; time: string; taken: boolean}[]>([]);
+
+  // 11. STATE: Help popup visibility and Leo's worried expression
+  const [showHelpPopup, setShowHelpPopup] = useState(false);
+  const [leoWorried, setLeoWorried] = useState(false);
+  
+  // 12. STATE: SOS trigger counter - increments when SOS button is clicked
+  const [sosTrigger, setSosTrigger] = useState(0);
 
   // Calculate engagement data from chat history
   const calculateEngagement = useCallback((messages: Message[]): EngagementData => {
@@ -227,10 +245,25 @@ function App() {
     } catch (e) {
       console.log("Failed to load engagement data");
     }
+
+    try {
+      const savedMeds = localStorage.getItem(MEDICATIONS_KEY);
+      if (savedMeds) {
+        const parsed = JSON.parse(savedMeds);
+        if (Array.isArray(parsed)) {
+          setMedications(parsed);
+        }
+      }
+    } catch (e) {
+      console.log("Failed to load medications");
+    }
   }, [calculateEngagement]);
 
-  // 5. POLLING: Check the backend every 2 seconds for Health/XP updates
+  // 5. POLLING: Only fetch global stats when NO child is selected
   useEffect(() => {
+    // Skip if a child is selected - child-specific polling handles it
+    if (selectedChild) return;
+
     const fetchStats = async () => {
       try {
         const res = await fetch('http://localhost:8000/'); 
@@ -241,64 +274,163 @@ function App() {
       }
     };
     
-    fetchStats(); // Run once immediately
-    const interval = setInterval(fetchStats, 2000); // Run every 2s
+    fetchStats();
+    const interval = setInterval(fetchStats, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedChild]);
 
-  // 8. POLLING: Fetch health metrics from simulator
+  // 8. POLLING: Fetch health metrics from child-specific or global endpoints
   useEffect(() => {
     const fetchHealthData = async () => {
       try {
-        // Fetch current health metrics
-        const metricsRes = await fetch('http://localhost:8000/api/health/current');
-        if (metricsRes.ok) {
-          const data = await metricsRes.json();
-          if (data.metrics) {
-            setHealthMetrics(data.metrics);
-          }
-          if (typeof data.health_score === 'number') {
-            setHealthScore(data.health_score);
-          }
-          if (data.safety_status) {
-            setSafetyStatus(data.safety_status);
-          }
-        }
-
-        // Fetch recent health events
-        const eventsRes = await fetch('http://localhost:8000/api/health/events?limit=20');
-        if (eventsRes.ok) {
-          const data = await eventsRes.json();
-          if (data.events && Array.isArray(data.events)) {
-            setHealthEvents(data.events);
+        if (selectedChild) {
+          // Fetch child's statistics (includes XP, level, health stats)
+          const statsRes = await fetch(`http://localhost:8000/api/children/${selectedChild.id}/statistics`);
+          if (statsRes.ok) {
+            const data = await statsRes.json();
             
-            // Convert simulator events to health logs for the dashboard
-            const newLogs: HealthLog[] = data.events
-              .filter((e: HealthEvent) => e && e.type && e.timestamp)
-              .map((e: HealthEvent) => ({
-                metric_type: e.type,
-                value: e.value || 0,
-                unit: e.unit || '',
-                timestamp: new Date(e.timestamp)
-              }));
+            // Update stats from child's actual data
+            setStats({
+              xp: data.xp ?? selectedChild.xp,
+              level: data.level ?? selectedChild.level,
+              status: data.danger_count > 0 ? 'Needs Help!' : 
+                      data.monitor_count > 0 ? 'Check In' : 'Super Strong!'
+            });
             
-            if (newLogs.length > 0) {
-              setHealthLogs(prev => {
-                // Merge new logs, avoiding duplicates
-                const existingIds = new Set(prev.map(l => l.timestamp.toString()));
-                const uniqueNew = newLogs.filter(l => !existingIds.has(l.timestamp.toString()));
-                return [...prev, ...uniqueNew].slice(-100); // Keep last 100
-              });
+            // Update health score
+            if (typeof data.avg_health_score === 'number') {
+              setHealthScore(data.avg_health_score);
+            }
+            
+            // Determine safety status from recent events
+            if (data.danger_count > 0) {
+              setSafetyStatus('DANGER');
+            } else if (data.monitor_count > 0) {
+              setSafetyStatus('MONITOR');
+            } else {
+              setSafetyStatus('SAFE');
             }
           }
-        }
 
-        // Fetch alerts
-        const alertsRes = await fetch('http://localhost:8000/api/health/alerts');
-        if (alertsRes.ok) {
-          const data = await alertsRes.json();
-          if (data.alerts && Array.isArray(data.alerts)) {
-            setSimulatorAlerts(data.alerts);
+          // Fetch child's history (for events and metrics)
+          const historyRes = await fetch(`http://localhost:8000/api/children/${selectedChild.id}/history?limit=50`);
+          if (historyRes.ok) {
+            const data = await historyRes.json();
+            if (data.events && Array.isArray(data.events)) {
+              setHealthEvents(data.events);
+              
+              // Extract current metrics from recent events
+              const metrics: HealthMetrics = {
+                glucose: { value: 5.5, unit: 'mmol/L', status: 'normal' },
+                heart_rate: { value: 85, unit: 'bpm', status: 'normal' },
+                mood: { value: 0.7, unit: 'score', status: 'good' },
+                activity: { value: 0.5, unit: 'score', status: 'moderate' },
+                spo2: { value: 98, unit: '%', status: 'normal' },
+                asthma_risk: { value: 0.2, unit: 'score', status: 'low' }
+              };
+              
+              // Find most recent value for each metric type
+              for (const event of data.events.slice().reverse()) {
+                const type = event.type || '';
+                if (type.includes('glucose') && metrics.glucose.value === 5.5) {
+                  metrics.glucose = {
+                    value: event.value,
+                    unit: 'mmol/L',
+                    status: event.value < 4 ? 'warning' : event.value > 9 ? 'elevated' : 'normal'
+                  };
+                }
+                if (type.includes('heart') && metrics.heart_rate.value === 85) {
+                  metrics.heart_rate = {
+                    value: event.value,
+                    unit: 'bpm',
+                    status: event.value < 70 || event.value > 120 ? 'warning' : 'normal'
+                  };
+                }
+                if (type.includes('mood') && metrics.mood.value === 0.7) {
+                  metrics.mood = {
+                    value: event.value,
+                    unit: 'score',
+                    status: event.value < 0.4 ? 'low' : event.value > 0.6 ? 'good' : 'neutral'
+                  };
+                }
+                if (type.includes('oxygen') && metrics.spo2.value === 98) {
+                  metrics.spo2 = {
+                    value: event.value,
+                    unit: '%',
+                    status: event.value < 95 ? 'low' : 'normal'
+                  };
+                }
+                if (type.includes('asthma') && metrics.asthma_risk.value === 0.2) {
+                  metrics.asthma_risk = {
+                    value: event.value,
+                    unit: 'score',
+                    status: event.value > 0.7 ? 'high' : event.value > 0.4 ? 'moderate' : 'low'
+                  };
+                }
+                if (type.includes('activity') && metrics.activity.value === 0.5) {
+                  metrics.activity = {
+                    value: event.value,
+                    unit: 'score',
+                    status: event.value > 0.6 ? 'active' : event.value < 0.3 ? 'sedentary' : 'moderate'
+                  };
+                }
+              }
+              setHealthMetrics(metrics);
+              
+              // Update health logs
+              const newLogs: HealthLog[] = data.events
+                .filter((e: HealthEvent) => e && e.type && e.timestamp)
+                .map((e: HealthEvent) => ({
+                  metric_type: e.type,
+                  value: e.value || 0,
+                  unit: e.unit || '',
+                  timestamp: new Date(e.timestamp)
+                }));
+              
+              if (newLogs.length > 0) {
+                setHealthLogs(newLogs);
+              }
+            }
+          }
+
+          // Fetch child's alerts
+          const alertsRes = await fetch(`http://localhost:8000/api/children/${selectedChild.id}/alerts`);
+          if (alertsRes.ok) {
+            const data = await alertsRes.json();
+            if (data.alerts && Array.isArray(data.alerts)) {
+              setSimulatorAlerts(data.alerts);
+            }
+          }
+        } else {
+          // Fallback to global endpoints when no child selected
+          const metricsRes = await fetch('http://localhost:8000/api/health/current');
+          if (metricsRes.ok) {
+            const data = await metricsRes.json();
+            if (data.metrics) {
+              setHealthMetrics(data.metrics);
+            }
+            if (typeof data.health_score === 'number') {
+              setHealthScore(data.health_score);
+            }
+            if (data.safety_status) {
+              setSafetyStatus(data.safety_status);
+            }
+          }
+
+          const eventsRes = await fetch('http://localhost:8000/api/health/events?limit=20');
+          if (eventsRes.ok) {
+            const data = await eventsRes.json();
+            if (data.events && Array.isArray(data.events)) {
+              setHealthEvents(data.events);
+            }
+          }
+
+          const alertsRes = await fetch('http://localhost:8000/api/health/alerts');
+          if (alertsRes.ok) {
+            const data = await alertsRes.json();
+            if (data.alerts && Array.isArray(data.alerts)) {
+              setSimulatorAlerts(data.alerts);
+            }
           }
         }
       } catch (e) {
@@ -307,9 +439,22 @@ function App() {
     };
 
     fetchHealthData();
-    const interval = setInterval(fetchHealthData, 3000); // Every 3s
+    // Poll every 2 seconds for real-time feel
+    const interval = setInterval(fetchHealthData, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedChild]);
+
+  // Handle child selection
+  const handleChildSelect = (child: Child | null) => {
+    setSelectedChild(child);
+    if (child) {
+      setStats({
+        xp: child.xp,
+        level: child.level,
+        status: 'Loading...'
+      });
+    }
+  };
 
   // Handle mood selection
   const handleMoodSelect = (entry: MoodEntry) => {
@@ -330,6 +475,43 @@ function App() {
     localStorage.setItem(ENGAGEMENT_KEY, JSON.stringify(newEngagement));
   };
 
+  // Handle medication updates - now per-child
+  const handleMedicationsUpdate = useCallback((meds: {type: string; time: string; taken: boolean}[]) => {
+    setMedications(meds);
+    // Save to child-specific key if child is selected
+    const key = selectedChild ? `${MEDICATIONS_KEY}_${selectedChild.id}` : MEDICATIONS_KEY;
+    localStorage.setItem(key, JSON.stringify(meds));
+  }, [selectedChild]);
+
+  // Load medications when child changes
+  useEffect(() => {
+    if (selectedChild) {
+      const key = `${MEDICATIONS_KEY}_${selectedChild.id}`;
+      try {
+        const saved = localStorage.getItem(key);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setMedications(parsed);
+            return;
+          }
+        }
+      } catch (e) {
+        console.log("Failed to load child medications");
+      }
+      // No saved medications for this child, reset to empty
+      setMedications([]);
+    }
+  }, [selectedChild]);
+
+  // Handle help keyword detection
+  const handleHelpDetected = () => {
+    setShowHelpPopup(true);
+    setLeoWorried(true);
+    // Reset Leo's expression after 5 seconds
+    setTimeout(() => setLeoWorried(false), 5000);
+  };
+
   // 6. LOGIC: Determine Status Color
   const getStatusClass = () => {
     if (safetyStatus === 'DANGER') return 'status-danger';
@@ -346,33 +528,103 @@ function App() {
   };
 
   return (
-    <div className="app-wrapper">
+    <div className={`app-wrapper ${isKidMode ? 'kid-mode' : 'detail-mode'} ${showHelpPopup || leoWorried ? 'help-mode' : ''}`}>
+      
+      {/* --- FLOATING HELP BUTTON --- */}
+      <button 
+        className="floating-help-btn"
+        onClick={() => {
+          setShowHelpPopup(true);
+          setLeoWorried(true);
+          setSosTrigger(prev => prev + 1); // Trigger Leo's response
+          setTimeout(() => setLeoWorried(false), 5000);
+        }}
+        title="Need help?"
+      >
+        🆘
+      </button>
+      
       {/* --- HUD BAR (Top) --- */}
       <div className="status-hud">
-        <div className="stat-pill">⭐ Level {stats.level}</div>
-        <div className="stat-pill">✨ {stats.xp} XP</div>
-        <div className={`stat-pill ${getStatusClass()}`}>
-          ❤️ {getDisplayStatus()}
+        {/* Child Selector */}
+        <ChildSelector 
+          onChildSelect={handleChildSelect}
+          selectedChild={selectedChild}
+        />
+
+        {/* Kid-friendly stats */}
+        <div className="stat-pill level-pill">
+          <span className="stat-icon">⭐</span>
+          <span className="stat-value">Level {stats.level}</span>
         </div>
-        {healthMetrics && (
+        
+        <div className="stat-pill xp-pill">
+          <span className="stat-icon">✨</span>
+          <span className="stat-value">{stats.xp} XP</span>
+        </div>
+
+        {/* Mood status - shows user's selected mood */}
+        <div className={`stat-pill status-pill ${currentMood ? 'status-mood' : getStatusClass()}`}>
+          <span className="stat-icon">
+            {currentMood?.mood || (safetyStatus === 'DANGER' ? '😟' : safetyStatus === 'MONITOR' ? '🤔' : '😊')}
+          </span>
+          <span className="stat-value">
+            {currentMood?.label || (isKidMode ? (
+              safetyStatus === 'DANGER' ? "Let's check!" : 
+              safetyStatus === 'MONITOR' ? 'Doing okay' : 'Feeling great!'
+            ) : getDisplayStatus())}
+          </span>
+        </div>
+
+        {/* Streak - always show for motivation */}
+        {(engagementData.currentStreak > 0 || (selectedChild?.streak || 0) > 0) && (
+          <div className="stat-pill streak-pill">
+            🔥 {engagementData.currentStreak || selectedChild?.streak || 0} day{(engagementData.currentStreak || selectedChild?.streak || 0) !== 1 ? 's' : ''}!
+          </div>
+        )}
+
+        {/* Health score - only in detail mode */}
+        {!isKidMode && (
           <div className="stat-pill health-pill">
             🩺 {healthScore.toFixed(0)}
           </div>
         )}
-        {engagementData.currentStreak > 0 && (
-          <div className="stat-pill streak-pill">
-            🔥 {engagementData.currentStreak} day streak
-          </div>
-        )}
+
+        {/* Mode Toggle */}
+        <button 
+          className={`mode-toggle ${isKidMode ? 'kid' : 'detail'}`}
+          onClick={() => setIsKidMode(!isKidMode)}
+          title={isKidMode ? 'Show more details' : 'Simplify view'}
+        >
+          {isKidMode ? '📊' : '🎮'}
+        </button>
+
+        {/* Parent Dashboard Button */}
         <button className="parent-btn" onClick={() => setShowDashboard(true)}>
-          👨‍👩‍👧 Parent View
+          👨‍👩‍👧 {isKidMode ? '' : 'Parent View'}
         </button>
       </div>
 
-      {/* --- REAL-TIME HEALTH ALERT BANNER --- */}
+      {/* --- REAL-TIME HEALTH ALERT BANNER (kid-friendly) --- */}
       {safetyStatus === 'DANGER' && (
         <div className="health-alert-banner">
-          🚨 Health Alert: {simulatorAlerts[0]?.message || 'Attention needed'}
+          {isKidMode ? (
+            <>
+              <span className="alert-emoji">🦁</span>
+              <span>Hey {selectedChild?.name || 'friend'}! Leo wants to check on you!</span>
+            </>
+          ) : (
+            <>🚨 Health Alert: {simulatorAlerts[0]?.message || 'Attention needed'}</>
+          )}
+        </div>
+      )}
+
+      {/* --- ENCOURAGEMENT BANNER (for kids) --- */}
+      {isKidMode && safetyStatus === 'SAFE' && stats.level >= 2 && (
+        <div className="encouragement-banner">
+          <span>🌟</span>
+          <span>You're doing amazing, {selectedChild?.name || 'superstar'}! Keep it up!</span>
+          <span>🌟</span>
         </div>
       )}
 
@@ -381,25 +633,49 @@ function App() {
         
         {/* LEFT: The Avatar */}
         <div className="avatar-zone">
-          {/* 🦁 Pass the speaking state so his mouth moves! */}
-          <LeoAvatar isSpeaking={isLeoTalking} />
+          <LeoAvatar isSpeaking={isLeoTalking} isWorried={leoWorried} />
           
-          {/* Health Metrics Mini Display */}
-          {healthMetrics && healthMetrics.glucose && healthMetrics.heart_rate && healthMetrics.spo2 && (
+          {/* Kid-friendly health display - below avatar */}
+          {isKidMode && (
+            <div className="kid-health-display">
+              <div className={`health-face ${safetyStatus.toLowerCase()}`}>
+                {safetyStatus === 'DANGER' ? '😟' : safetyStatus === 'MONITOR' ? '😐' : '😊'}
+              </div>
+              <span className="health-text">
+                {safetyStatus === 'DANGER' ? "Let's talk to a grown-up!" : 
+                 safetyStatus === 'MONITOR' ? "Doing okay!" : "Feeling great!"}
+              </span>
+            </div>
+          )}
+          
+          {/* Detailed Health Metrics Display (for detail mode) */}
+          {!isKidMode && healthMetrics && (
             <div className="health-mini-display">
               <div className="mini-metric">
                 <span className="mini-icon">🍎</span>
-                <span className="mini-value">{healthMetrics.glucose.value?.toFixed(1) || '--'}</span>
+                <span className="mini-value">
+                  {typeof healthMetrics.glucose?.value === 'number' 
+                    ? healthMetrics.glucose.value.toFixed(1) 
+                    : '--'}
+                </span>
                 <span className="mini-unit">mmol/L</span>
               </div>
               <div className="mini-metric">
                 <span className="mini-icon">❤️</span>
-                <span className="mini-value">{healthMetrics.heart_rate.value?.toFixed(0) || '--'}</span>
+                <span className="mini-value">
+                  {typeof healthMetrics.heart_rate?.value === 'number' 
+                    ? healthMetrics.heart_rate.value.toFixed(0) 
+                    : '--'}
+                </span>
                 <span className="mini-unit">bpm</span>
               </div>
               <div className="mini-metric">
                 <span className="mini-icon">🫁</span>
-                <span className="mini-value">{healthMetrics.spo2.value?.toFixed(0) || '--'}</span>
+                <span className="mini-value">
+                  {typeof healthMetrics.spo2?.value === 'number' 
+                    ? healthMetrics.spo2.value.toFixed(0) 
+                    : '--'}
+                </span>
                 <span className="mini-unit">%</span>
               </div>
             </div>
@@ -418,6 +694,8 @@ function App() {
             onSpeakingStateChange={setIsLeoTalking}
             onChatUpdate={handleChatUpdate}
             currentMood={currentMood}
+            onHelpDetected={handleHelpDetected}
+            sosTrigger={sosTrigger}
           />
         </div>
 
@@ -426,6 +704,7 @@ function App() {
       {/* --- PARENT DASHBOARD (Modal) --- */}
       {showDashboard && (
         <ParentDashboard
+          selectedChild={selectedChild}
           chatHistory={chatHistory}
           moodHistory={moodHistory}
           healthLogs={healthLogs}
@@ -435,8 +714,34 @@ function App() {
           safetyStatus={safetyStatus}
           healthEvents={healthEvents}
           simulatorAlerts={simulatorAlerts}
+          medications={medications}
+          onMedicationsUpdate={handleMedicationsUpdate}
           onClose={() => setShowDashboard(false)}
         />
+      )}
+
+      {/* --- HELP POPUP --- */}
+      {showHelpPopup && (
+        <div className="help-popup-overlay" onClick={() => setShowHelpPopup(false)}>
+          <div className="help-popup" onClick={e => e.stopPropagation()}>
+            <div className="help-popup-header">
+              <span className="help-icon">🆘</span>
+              <h3>Need Help?</h3>
+              <button className="help-close" onClick={() => setShowHelpPopup(false)}>×</button>
+            </div>
+            <div className="help-popup-content">
+              <p>If you need help, please call:</p>
+              <a href="tel:+17807094350" className="help-number">
+                📞 +1 (780) 709-4350
+              </a>
+              <div className="help-divider">or</div>
+              <a href="tel:911" className="emergency-number">
+                🚨 Emergency: 911
+              </a>
+              <p className="help-note">A grown-up can help you!</p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

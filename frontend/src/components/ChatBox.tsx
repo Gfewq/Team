@@ -12,9 +12,11 @@ interface ChatBoxProps {
   onSpeakingStateChange: (isSpeaking: boolean) => void;
   onChatUpdate?: (messages: Message[]) => void;
   currentMood?: MoodEntry | null;
+  onHelpDetected?: () => void;
+  sosTrigger?: number;
 }
 
-export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMood }: ChatBoxProps) {
+export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMood, onHelpDetected, sosTrigger }: ChatBoxProps) {
   const [messages, setMessages] = useState<Message[]>([
     { role: 'leo', text: "Hi! I'm Leo! How is your tummy feeling?", timestamp: new Date() }
   ]);
@@ -58,11 +60,28 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
     }
   }, [currentMood]);
 
+  // React to SOS button being pressed
+  useEffect(() => {
+    if (sosTrigger && sosTrigger > 0) {
+      setMessages(prev => [...prev, { 
+        role: 'leo', 
+        text: "Oh no! Are you okay? 😰 I'm here for you! A grown-up can help - use the numbers on the screen! 🆘💕",
+        timestamp: new Date()
+      }]);
+    }
+  }, [sosTrigger]);
+
   const sendMessage = async () => {
     if (!input.trim()) return;
 
     const userMsg = input;
     const timestamp = new Date();
+    
+    // Check for help keyword
+    if (userMsg.toLowerCase().includes('help')) {
+      onHelpDetected?.();
+    }
+    
     setMessages(prev => [...prev, { role: 'user', text: userMsg, timestamp }]);
     setInput('');
     setIsTyping(true); // <--- Triggers Lion Mouth Open

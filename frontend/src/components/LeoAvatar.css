@@ -127,6 +127,40 @@
   to { transform: translateY(2px); }
 }
 
+/* --- WORRIED EXPRESSION --- */
+.leo-avatar.worried {
+  animation: worried-shake 0.5s ease-in-out infinite;
+}
+
+.leo-avatar.worried .eyes {
+  animation: worried-eyes 0.3s ease-in-out infinite;
+}
+
+.leo-avatar.worried .mouth-closed {
+  opacity: 1;
+  transform: scaleY(1.2);
+}
+
+.leo-avatar.worried .tail {
+  animation: worried-tail 0.3s ease-in-out infinite;
+}
+
+@keyframes worried-shake {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  25% { transform: translateX(-3px) translateY(-2px); }
+  75% { transform: translateX(3px) translateY(-2px); }
+}
+
+@keyframes worried-eyes {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.1); }
+}
+
+@keyframes worried-tail {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-3deg); }
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .leo-svg { width: 280px; height: 340px; }

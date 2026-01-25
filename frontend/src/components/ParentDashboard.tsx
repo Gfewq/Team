@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { MoodEntry } from './MoodTracker';
+import { Child } from './ChildSelector';
 import './ParentDashboard.css';
 
 interface Message {
@@ -67,6 +68,7 @@ interface EngagementData {
 }
 
 interface ParentDashboardProps {
+  selectedChild: Child | null;
   chatHistory: Message[];
   moodHistory: MoodEntry[];
   healthLogs?: HealthLog[];
@@ -76,77 +78,246 @@ interface ParentDashboardProps {
   safetyStatus?: string;
   healthEvents?: HealthEvent[];
   simulatorAlerts?: SimulatorAlert[];
+  medications?: {type: string; time: string; taken: boolean}[];
+  onMedicationsUpdate?: (meds: {type: string; time: string; taken: boolean}[]) => void;
   onClose: () => void;
 }
 
-// Keywords that might indicate concerning responses
-const CONCERN_KEYWORDS = [
-  'hurt', 'pain', 'scared', 'dizzy', 'faint', 'blood', 'emergency',
-  'help', 'bad', 'worse', 'sick', 'hospital', 'cant breathe', "can't breathe"
-];
-
-// Topic categories for conversation analysis
-const TOPIC_KEYWORDS: Record<string, string[]> = {
-  'Symptoms': ['hurt', 'pain', 'ache', 'sick', 'dizzy', 'tired', 'headache', 'tummy', 'stomach'],
-  'Emotions': ['happy', 'sad', 'scared', 'worried', 'angry', 'cry', 'feel', 'mood'],
-  'Health Questions': ['why', 'what', 'how', 'glucose', 'sugar', 'insulin', 'medicine', 'doctor'],
-  'Daily Life': ['school', 'play', 'friend', 'eat', 'sleep', 'game', 'fun'],
-};
-
 export default function ParentDashboard({ 
+  selectedChild,
   chatHistory, 
   moodHistory, 
   healthLogs = [],
   engagementData,
-  healthMetrics,
-  healthScore = 75,
-  safetyStatus = 'SAFE',
-  healthEvents = [],
-  simulatorAlerts = [],
+  healthMetrics: initialMetrics,
+  healthScore: initialScore = 75,
+  safetyStatus: initialStatus = 'SAFE',
+  healthEvents: initialEvents = [],
+  simulatorAlerts: initialAlerts = [],
+  medications = [],
+  onMedicationsUpdate,
   onClose 
 }: ParentDashboardProps) {
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'health' | 'insights'>('overview');
-  const [reviewedAlerts, setReviewedAlerts] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'overview' | 'health' | 'medications'>('overview');
+  const [medicationsDue, setMedicationsDue] = useState<{type: string; time: string; taken: boolean}[]>(medications);
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+  
+  // Live data state - poll directly from API
+  const [liveMetrics, setLiveMetrics] = useState<HealthMetrics | null>(initialMetrics || null);
+  const [liveScore, setLiveScore] = useState(initialScore);
+  const [liveStatus, setLiveStatus] = useState(initialStatus);
+  const [liveEvents, setLiveEvents] = useState<HealthEvent[]>(initialEvents);
+  const [liveAlerts, setLiveAlerts] = useState<SimulatorAlert[]>(initialAlerts);
 
-  // Analyze chat for concerning messages
-  const chatAlerts = useMemo(() => {
-    return chatHistory
-      .filter(msg => msg.role === 'user')
-      .filter(msg => {
-        const lowerText = msg.text.toLowerCase();
-        return CONCERN_KEYWORDS.some(keyword => lowerText.includes(keyword));
-      })
-      .map((msg, index) => ({
-        id: `chat-${index}`,
-        text: msg.text,
-        timestamp: msg.timestamp || new Date(),
-        source: 'chat' as const
-      }));
-  }, [chatHistory]);
+  // Poll for live data
+  useEffect(() => {
+    if (!selectedChild) return;
 
-  // Combine chat alerts with simulator alerts
-  const allAlerts = useMemo(() => {
-    const simAlerts = simulatorAlerts.map(a => ({
-      id: a.id,
-      text: `${a.type.replace('_', ' ').toUpperCase()}: ${a.value} ${a.unit} - ${a.message}`,
-      timestamp: new Date(a.timestamp),
-      source: 'simulator' as const,
-      severity: a.severity,
-      health_score: a.health_score
-    }));
-    
-    const combined = [
-      ...simAlerts,
-      ...chatAlerts.map(a => ({ ...a, severity: 'warning', health_score: 0 }))
-    ];
-    
-    return combined.sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    const fetchLiveData = async () => {
+      try {
+        // Fetch statistics
+        const statsRes = await fetch(`http://localhost:8000/api/children/${selectedChild.id}/statistics`);
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          if (typeof data.avg_health_score === 'number') {
+            setLiveScore(data.avg_health_score);
+          }
+          if (data.danger_count > 0) {
+            setLiveStatus('DANGER');
+          } else if (data.monitor_count > 0) {
+            setLiveStatus('MONITOR');
+          } else {
+            setLiveStatus('SAFE');
+          }
+        }
+
+        // Fetch history for events and metrics
+        const historyRes = await fetch(`http://localhost:8000/api/children/${selectedChild.id}/history?limit=50`);
+        if (historyRes.ok) {
+          const data = await historyRes.json();
+          if (data.events && Array.isArray(data.events)) {
+            setLiveEvents(data.events);
+            
+            // Extract LATEST metrics from events (sorted by timestamp, most recent first)
+            const sortedEvents = [...data.events].sort((a, b) => 
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            );
+            
+            // Default metrics
+            const metrics: HealthMetrics = {
+              glucose: { value: 5.5, unit: 'mmol/L', status: 'normal' },
+              heart_rate: { value: 85, unit: 'bpm', status: 'normal' },
+              mood: { value: 0.7, unit: 'score', status: 'good' },
+              activity: { value: 0.5, unit: 'score', status: 'moderate' },
+              spo2: { value: 98, unit: '%', status: 'normal' },
+              asthma_risk: { value: 0.2, unit: 'score', status: 'low' }
+            };
+            
+            // Track which metrics we've found (only use most recent)
+            const found = { glucose: false, heart: false, mood: false, oxygen: false, asthma: false, activity: false };
+            
+            for (const event of sortedEvents) {
+              const type = (event.type || event.event_type || '').toLowerCase();
+              const value = event.value;
+              
+              if (!found.glucose && (type.includes('glucose') || type.includes('blood_sugar'))) {
+                found.glucose = true;
+                metrics.glucose = {
+                  value: typeof value === 'number' ? value : 5.5,
+                  unit: 'mmol/L',
+                  status: value < 4 ? 'low' : value > 10 ? 'high' : value > 7 ? 'elevated' : 'normal'
+                };
+              }
+              if (!found.heart && (type.includes('heart') || type.includes('pulse') || type.includes('hr'))) {
+                found.heart = true;
+                metrics.heart_rate = {
+                  value: typeof value === 'number' ? Math.round(value) : 85,
+                  unit: 'bpm',
+                  status: value < 60 || value > 120 ? 'warning' : 'normal'
+                };
+              }
+              if (!found.mood && type.includes('mood')) {
+                found.mood = true;
+                const moodVal = typeof value === 'number' ? value : 0.5;
+                metrics.mood = {
+                  value: Math.round(moodVal * 100),
+                  unit: '%',
+                  status: moodVal < 0.4 ? 'low' : moodVal > 0.6 ? 'good' : 'neutral'
+                };
+              }
+              if (!found.oxygen && (type.includes('oxygen') || type.includes('spo2') || type.includes('saturation'))) {
+                found.oxygen = true;
+                metrics.spo2 = {
+                  value: typeof value === 'number' ? Math.round(value) : 98,
+                  unit: '%',
+                  status: value < 95 ? 'low' : 'normal'
+                };
+              }
+              if (!found.asthma && type.includes('asthma')) {
+                found.asthma = true;
+                const riskVal = typeof value === 'number' ? value : 0.2;
+                metrics.asthma_risk = {
+                  value: riskVal,
+                  unit: 'score',
+                  status: riskVal > 0.7 ? 'high' : riskVal > 0.4 ? 'moderate' : 'low'
+                };
+              }
+              if (!found.activity && type.includes('activity')) {
+                found.activity = true;
+                const actVal = typeof value === 'number' ? value : 0.5;
+                metrics.activity = {
+                  value: Math.round(actVal * 100),
+                  unit: '%',
+                  status: actVal > 0.6 ? 'active' : actVal < 0.3 ? 'sedentary' : 'moderate'
+                };
+              }
+            }
+            setLiveMetrics(metrics);
+          }
+        }
+
+        // Fetch alerts
+        const alertsRes = await fetch(`http://localhost:8000/api/children/${selectedChild.id}/alerts`);
+        if (alertsRes.ok) {
+          const data = await alertsRes.json();
+          if (data.alerts && Array.isArray(data.alerts)) {
+            setLiveAlerts(data.alerts);
+          }
+        }
+
+        setLastRefresh(new Date());
+      } catch (e) {
+        console.log("Dashboard poll failed:", e);
+      }
+    };
+
+    fetchLiveData();
+    const interval = setInterval(fetchLiveData, 2000);
+    return () => clearInterval(interval);
+  }, [selectedChild]);
+
+  // Sync medications with parent
+  useEffect(() => {
+    if (onMedicationsUpdate && medicationsDue !== medications) {
+      onMedicationsUpdate(medicationsDue);
+    }
+  }, [medicationsDue]);
+
+  // Load medications from props on mount
+  useEffect(() => {
+    if (medications.length > 0 && medicationsDue.length === 0) {
+      setMedicationsDue(medications);
+    }
+  }, [medications]);
+
+  // Check for medication events
+  useEffect(() => {
+    const medEvents = liveEvents.filter(e => e.type?.includes('medication'));
+    if (medEvents.length > 0) {
+      setMedicationsDue(prev => {
+        const existing = new Set(prev.map(m => m.time));
+        const newMeds = medEvents
+          .filter(e => !existing.has(e.timestamp))
+          .map(e => ({
+            type: 'Insulin',
+            time: e.timestamp,
+            taken: false
+          }));
+        return [...prev, ...newMeds].slice(-10);
+      });
+    }
+  }, [liveEvents]);
+
+  // Mark medication as taken
+  const markMedicationTaken = async (index: number) => {
+    setMedicationsDue(prev => 
+      prev.map((m, i) => i === index ? { ...m, taken: true } : m)
     );
-  }, [chatAlerts, simulatorAlerts]);
+  };
 
-  // Calculate mood statistics
+  // Get current metrics with proper defaults - USE LIVE DATA
+  const currentMetrics = useMemo(() => {
+    if (liveMetrics) {
+      return {
+        glucose: liveMetrics.glucose?.value ?? '--',
+        glucoseStatus: liveMetrics.glucose?.status ?? 'normal',
+        heartRate: liveMetrics.heart_rate?.value ?? '--',
+        heartRateStatus: liveMetrics.heart_rate?.status ?? 'normal',
+        spo2: liveMetrics.spo2?.value ?? '--',
+        spo2Status: liveMetrics.spo2?.status ?? 'normal',
+        mood: liveMetrics.mood?.value ?? '--',
+        moodStatus: liveMetrics.mood?.status ?? 'neutral',
+        activity: liveMetrics.activity?.value ?? '--',
+        activityStatus: liveMetrics.activity?.status ?? 'moderate',
+        asthmaRisk: liveMetrics.asthma_risk?.value ?? '--',
+        asthmaStatus: liveMetrics.asthma_risk?.status ?? 'low'
+      };
+    }
+    return null;
+  }, [liveMetrics]);
+
+  // Calculate real stats from events - USE LIVE DATA
+  const eventStats = useMemo(() => {
+    const total = liveEvents.length;
+    const danger = liveEvents.filter(e => e.safety_status === 'DANGER').length;
+    const monitor = liveEvents.filter(e => e.safety_status === 'MONITOR').length;
+    const safe = liveEvents.filter(e => e.safety_status === 'SAFE').length;
+    
+    const glucoseEvents = liveEvents.filter(e => e.type?.includes('glucose'));
+    const avgGlucose = glucoseEvents.length > 0 
+      ? glucoseEvents.reduce((sum, e) => sum + e.value, 0) / glucoseEvents.length 
+      : 5.5;
+    
+    const hrEvents = liveEvents.filter(e => e.type?.includes('heart'));
+    const avgHR = hrEvents.length > 0
+      ? hrEvents.reduce((sum, e) => sum + e.value, 0) / hrEvents.length
+      : 85;
+
+    return { total, danger, monitor, safe, avgGlucose, avgHR };
+  }, [liveEvents]);
+
+  // Get mood stats
   const moodStats = useMemo(() => {
     const last7Days = moodHistory.filter(entry => {
       const entryDate = new Date(entry.timestamp);
@@ -160,614 +331,298 @@ export default function ParentDashboard({
       moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1;
     });
 
-    return {
-      total: last7Days.length,
-      counts: moodCounts,
-      entries: last7Days,
-    };
+    return { total: last7Days.length, counts: moodCounts };
   }, [moodHistory]);
-
-  // Analyze conversation topics
-  const topicAnalysis = useMemo(() => {
-    const topics: Record<string, number> = {};
-    
-    chatHistory
-      .filter(msg => msg.role === 'user')
-      .forEach(msg => {
-        const lowerText = msg.text.toLowerCase();
-        Object.entries(TOPIC_KEYWORDS).forEach(([topic, keywords]) => {
-          if (keywords.some(keyword => lowerText.includes(keyword))) {
-            topics[topic] = (topics[topic] || 0) + 1;
-          }
-        });
-      });
-
-    const total = Object.values(topics).reduce((a, b) => a + b, 0) || 1;
-    return Object.entries(topics)
-      .map(([topic, count]) => ({
-        topic,
-        count,
-        percentage: Math.round((count / total) * 100)
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [chatHistory]);
-
-  // Calculate Wellness Score (0-100) - now uses simulator health score
-  const wellnessScore = useMemo(() => {
-    // Start with simulator health score if available
-    let score = healthScore || 70;
-
-    // Mood impact
-    const positiveMoods = (moodStats.counts['😊'] || 0);
-    const negativeMoods = (moodStats.counts['😢'] || 0) + (moodStats.counts['🤒'] || 0);
-    score += positiveMoods * 2;
-    score -= negativeMoods * 3;
-
-    // Alert impact
-    const unreviewedAlerts = allAlerts.filter(a => !reviewedAlerts.has(a.id)).length;
-    score -= unreviewedAlerts * 5;
-
-    // Critical alerts have bigger impact
-    const criticalAlerts = simulatorAlerts.filter(a => a.severity === 'critical').length;
-    score -= criticalAlerts * 10;
-
-    // Engagement bonus
-    if (engagementData) {
-      if (engagementData.currentStreak >= 3) score += 5;
-      if (engagementData.currentStreak >= 7) score += 5;
-    }
-
-    return Math.max(0, Math.min(100, Math.round(score)));
-  }, [healthScore, moodStats, allAlerts, reviewedAlerts, engagementData, simulatorAlerts]);
-
-  // Generate smart recommendations based on simulator data
-  const recommendations = useMemo(() => {
-    const recs: { icon: string; text: string; priority: 'high' | 'medium' | 'low' }[] = [];
-
-    // Check simulator health metrics
-    if (healthMetrics) {
-      if (healthMetrics.glucose?.status === 'warning') {
-        recs.push({
-          icon: '🍎',
-          text: `Glucose is ${(healthMetrics.glucose?.value || 5.5) < 4 ? 'low' : 'high'} (${healthMetrics.glucose?.value || '--'} mmol/L) - monitor closely`,
-          priority: 'high'
-        });
-      }
-
-      if (healthMetrics.spo2?.status === 'low') {
-        recs.push({
-          icon: '🫁',
-          text: `Oxygen saturation is low (${healthMetrics.spo2?.value || '--'}%) - check breathing`,
-          priority: 'high'
-        });
-      }
-
-      if (healthMetrics.asthma_risk?.status === 'high') {
-        recs.push({
-          icon: '🌬️',
-          text: 'Asthma risk is elevated - ensure inhaler is available',
-          priority: 'high'
-        });
-      }
-
-      if (healthMetrics.mood?.status === 'low') {
-        recs.push({
-          icon: '💙',
-          text: 'Mood indicators are low - consider checking in with your child',
-          priority: 'medium'
-        });
-      }
-
-      if (healthMetrics.activity?.status === 'sedentary') {
-        recs.push({
-          icon: '🏃',
-          text: 'Activity level is low - encourage some movement or play',
-          priority: 'low'
-        });
-      }
-    }
-
-    // Check for consecutive tired moods
-    const recentMoods = moodStats.entries.slice(-3);
-    const tiredCount = recentMoods.filter(m => m.mood === '😫').length;
-    if (tiredCount >= 2) {
-      recs.push({
-        icon: '😴',
-        text: 'Child has been tired frequently - consider earlier bedtime',
-        priority: 'medium'
-      });
-    }
-
-    // Safety status based recommendations
-    if (safetyStatus === 'DANGER') {
-      recs.push({
-        icon: '🚨',
-        text: 'Critical health event detected - immediate attention required',
-        priority: 'high'
-      });
-    } else if (safetyStatus === 'MONITOR') {
-      recs.push({
-        icon: '👀',
-        text: 'Health metrics need monitoring - check on your child',
-        priority: 'medium'
-      });
-    }
-
-    // Unreviewed alerts
-    if (allAlerts.length > 0 && reviewedAlerts.size < allAlerts.length) {
-      recs.push({
-        icon: '⚠️',
-        text: `${allAlerts.length - reviewedAlerts.size} alert(s) need your attention`,
-        priority: 'high'
-      });
-    }
-
-    // Positive reinforcement
-    if (wellnessScore >= 80) {
-      recs.push({
-        icon: '🌟',
-        text: 'Great health metrics! Keep up the excellent care!',
-        priority: 'low'
-      });
-    }
-
-    return recs.sort((a, b) => {
-      const priorityOrder = { high: 0, medium: 1, low: 2 };
-      return priorityOrder[a.priority] - priorityOrder[b.priority];
-    });
-  }, [healthMetrics, moodStats, safetyStatus, allAlerts, reviewedAlerts, wellnessScore]);
-
-  // Get mood bar height percentage
-  const getBarHeight = (count: number) => {
-    if (moodStats.total === 0) return 0;
-    return (count / moodStats.total) * 100;
-  };
-
-  const moodColors: Record<string, string> = {
-    '😊': '#00b894',
-    '😐': '#fdcb6e',
-    '😢': '#74b9ff',
-    '😫': '#a29bfe',
-    '🤒': '#ff7675',
-  };
-
-  // Export data as JSON (downloadable)
-  const exportData = () => {
-    const data = {
-      exportDate: new Date().toISOString(),
-      chatHistory: chatHistory,
-      moodHistory: moodHistory,
-      healthLogs: healthLogs,
-      healthEvents: healthEvents,
-      healthMetrics: healthMetrics,
-      wellnessScore: wellnessScore,
-      alerts: allAlerts,
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `leo-health-report-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  // Mark alert as reviewed
-  const markAlertReviewed = (alertId: string) => {
-    setReviewedAlerts(prev => new Set([...prev, alertId]));
-  };
-
-  // Get wellness score color
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return '#00b894';
-    if (score >= 60) return '#fdcb6e';
-    if (score >= 40) return '#f39c12';
-    return '#ff7675';
-  };
 
   // Get status color
   const getStatusColor = (status: string) => {
-    if (status === 'DANGER') return '#ff7675';
-    if (status === 'MONITOR') return '#fdcb6e';
+    if (status === 'DANGER' || status === 'warning' || status === 'low' || status === 'high') return '#ff7675';
+    if (status === 'MONITOR' || status === 'elevated' || status === 'moderate') return '#fdcb6e';
     return '#00b894';
   };
 
-  // Get metric status color
-  const getMetricStatusColor = (status: string) => {
-    if (status === 'warning' || status === 'low' || status === 'high') return '#ff7675';
-    if (status === 'elevated' || status === 'moderate') return '#fdcb6e';
-    return '#00b894';
-  };
-
-  // Get topic color
-  const getTopicColor = (topic: string) => {
-    const colors: Record<string, string> = {
-      'Symptoms': '#ff7675',
-      'Emotions': '#a29bfe',
-      'Health Questions': '#74b9ff',
-      'Daily Life': '#00b894',
-    };
-    return colors[topic] || '#dfe6e9';
-  };
-
-  // Format event type for display
+  // Format event type
   const formatEventType = (type: string) => {
-    return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    return type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Unknown';
+  };
+
+  // Format time ago
+  const formatTimeAgo = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
+    return date.toLocaleDateString();
   };
 
   return (
     <div className="dashboard-overlay">
       <div className="dashboard-container">
+        {/* Header */}
         <div className="dashboard-header">
-          <h1>👨‍👩‍👧 Parent Dashboard</h1>
-          <div className="header-actions">
+          <div className="header-left">
+            <h1>📊 Parent Dashboard</h1>
+            {selectedChild && (
+              <span className="child-name-badge">
+                {selectedChild.name} (Age {selectedChild.age})
+              </span>
+            )}
+          </div>
+          <div className="header-right">
             <div 
-              className="safety-status-badge"
-              style={{ backgroundColor: getStatusColor(safetyStatus) }}
+              className="safety-badge"
+              style={{ backgroundColor: getStatusColor(liveStatus) }}
             >
-              {safetyStatus === 'DANGER' ? '🚨' : safetyStatus === 'MONITOR' ? '👀' : '✓'} {safetyStatus}
+              {liveStatus === 'DANGER' ? '🚨' : liveStatus === 'MONITOR' ? '👀' : '✓'} {liveStatus}
             </div>
-            <button className="export-btn" onClick={exportData} title="Export Data">
-              📤 Export
-            </button>
+            <span className="last-update">Updated: {lastRefresh.toLocaleTimeString()}</span>
             <button className="close-btn" onClick={onClose}>✕</button>
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tabs */}
         <div className="tab-navigation">
           <button 
             className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
-            📊 Overview
+            📈 Live Metrics
           </button>
           <button 
             className={`tab-btn ${activeTab === 'health' ? 'active' : ''}`}
             onClick={() => setActiveTab('health')}
           >
-            ❤️ Health
+            📋 Event History
           </button>
           <button 
-            className={`tab-btn ${activeTab === 'insights' ? 'active' : ''}`}
-            onClick={() => setActiveTab('insights')}
+            className={`tab-btn ${activeTab === 'medications' ? 'active' : ''}`}
+            onClick={() => setActiveTab('medications')}
           >
-            💡 Insights
+            💊 Medications
+            {medicationsDue.filter(m => !m.taken).length > 0 && (
+              <span className="med-badge">{medicationsDue.filter(m => !m.taken).length}</span>
+            )}
           </button>
         </div>
 
-        {/* Wellness Score Banner */}
-        <div className="wellness-banner">
-          <div className="wellness-score-container">
-            <div 
-              className="wellness-score-ring"
-              style={{ 
-                background: `conic-gradient(${getScoreColor(wellnessScore)} ${wellnessScore * 3.6}deg, #e0e0e0 0deg)`
-              }}
-            >
-              <div className="wellness-score-inner">
-                <span className="wellness-score-value">{wellnessScore}</span>
-                <span className="wellness-score-label">Wellness</span>
+        {/* Overview Tab - Live Metrics */}
+        {activeTab === 'overview' && (
+          <div className="dashboard-content">
+            {/* Health Score Banner */}
+            <div className="health-score-banner">
+              <div className="score-circle" style={{ 
+                background: `conic-gradient(${getStatusColor(liveStatus)} ${liveScore * 3.6}deg, #e0e0e0 0deg)`
+              }}>
+                <div className="score-inner">
+                  <span className="score-value">{liveScore.toFixed(0)}</span>
+                </div>
+              </div>
+              <div className="score-info">
+                <h2>Health Score</h2>
+                <p>Based on {eventStats.total} recent events</p>
+                <div className="score-breakdown">
+                  <span className="breakdown-item safe">✓ {eventStats.safe} Safe</span>
+                  <span className="breakdown-item monitor">👀 {eventStats.monitor} Monitor</span>
+                  <span className="breakdown-item danger">⚠ {eventStats.danger} Alerts</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="wellness-info">
-            <h3>Weekly Wellness Score</h3>
-            <p>Based on mood patterns, health metrics, and alerts</p>
-            <div className="wellness-factors">
-              <span className="factor">😊 Moods: {moodStats.total}</span>
-              <span className="factor">💬 Messages: {chatHistory.length}</span>
-              <span className="factor">🔥 Streak: {engagementData?.currentStreak || 0} days</span>
-              <span className="factor" style={{ color: getStatusColor(safetyStatus) }}>
-                🩺 {safetyStatus}
-              </span>
-            </div>
-          </div>
-        </div>
 
-        {activeTab === 'overview' && (
-          <div className="dashboard-grid">
-            {/* Real-time Health Metrics */}
-            {healthMetrics && healthMetrics.glucose && healthMetrics.heart_rate && (
-              <div className="dashboard-card vitals-card">
-                <h2>🩺 Live Health Metrics</h2>
-                <div className="vitals-grid">
-                  <div className="vital-item">
-                    <span className="vital-icon">🍎</span>
-                    <div className="vital-info">
-                      <span className="vital-label">Glucose</span>
-                      <span 
-                        className="vital-value"
-                        style={{ color: getMetricStatusColor(healthMetrics.glucose?.status || 'normal') }}
-                      >
-                        {healthMetrics.glucose?.value?.toFixed(1) || '--'} {healthMetrics.glucose?.unit || 'mmol/L'}
+            {/* Live Metrics Grid */}
+            {currentMetrics && (
+              <div className="metrics-grid">
+                <div className="metric-card">
+                  <div className="metric-icon">🍎</div>
+                  <div className="metric-info">
+                    <span className="metric-label">Glucose</span>
+                    <span className="metric-value" style={{ color: getStatusColor(currentMetrics.glucoseStatus) }}>
+                      {typeof currentMetrics.glucose === 'number' ? currentMetrics.glucose.toFixed(1) : currentMetrics.glucose}
+                    </span>
+                    <span className="metric-unit">mmol/L</span>
+                  </div>
+                  <div className={`metric-status ${currentMetrics.glucoseStatus}`}>
+                    {currentMetrics.glucoseStatus}
+                  </div>
+                </div>
+
+                <div className="metric-card">
+                  <div className="metric-icon">❤️</div>
+                  <div className="metric-info">
+                    <span className="metric-label">Heart Rate</span>
+                    <span className="metric-value" style={{ color: getStatusColor(currentMetrics.heartRateStatus) }}>
+                      {typeof currentMetrics.heartRate === 'number' ? currentMetrics.heartRate.toFixed(0) : currentMetrics.heartRate}
+                    </span>
+                    <span className="metric-unit">bpm</span>
+                  </div>
+                  <div className={`metric-status ${currentMetrics.heartRateStatus}`}>
+                    {currentMetrics.heartRateStatus}
+                  </div>
+                </div>
+
+                <div className="metric-card">
+                  <div className="metric-icon">🫁</div>
+                  <div className="metric-info">
+                    <span className="metric-label">SpO2</span>
+                    <span className="metric-value" style={{ color: getStatusColor(currentMetrics.spo2Status) }}>
+                      {typeof currentMetrics.spo2 === 'number' ? currentMetrics.spo2.toFixed(0) : currentMetrics.spo2}
+                    </span>
+                    <span className="metric-unit">%</span>
+                  </div>
+                  <div className={`metric-status ${currentMetrics.spo2Status}`}>
+                    {currentMetrics.spo2Status}
+                  </div>
+                </div>
+
+                <div className="metric-card">
+                  <div className="metric-icon">😊</div>
+                  <div className="metric-info">
+                    <span className="metric-label">Mood</span>
+                    <span className="metric-value" style={{ color: getStatusColor(currentMetrics.moodStatus) }}>
+                      {typeof currentMetrics.mood === 'number' ? (currentMetrics.mood * 100).toFixed(0) + '%' : currentMetrics.mood}
+                    </span>
+                    <span className="metric-unit">score</span>
+                  </div>
+                  <div className={`metric-status ${currentMetrics.moodStatus}`}>
+                    {currentMetrics.moodStatus}
+                  </div>
+                </div>
+
+                <div className="metric-card">
+                  <div className="metric-icon">🏃</div>
+                  <div className="metric-info">
+                    <span className="metric-label">Activity</span>
+                    <span className="metric-value">
+                      {typeof currentMetrics.activity === 'number' ? (currentMetrics.activity * 100).toFixed(0) + '%' : currentMetrics.activity}
+                    </span>
+                    <span className="metric-unit">score</span>
+                  </div>
+                  <div className={`metric-status ${currentMetrics.activityStatus}`}>
+                    {currentMetrics.activityStatus}
+                  </div>
+                </div>
+
+                {selectedChild?.condition !== 'diabetes' && (
+                  <div className="metric-card">
+                    <div className="metric-icon">🌬️</div>
+                    <div className="metric-info">
+                      <span className="metric-label">Asthma Risk</span>
+                      <span className="metric-value" style={{ color: getStatusColor(currentMetrics.asthmaStatus) }}>
+                        {typeof currentMetrics.asthmaRisk === 'number' ? (currentMetrics.asthmaRisk * 100).toFixed(0) + '%' : currentMetrics.asthmaRisk}
                       </span>
+                      <span className="metric-unit">risk</span>
+                    </div>
+                    <div className={`metric-status ${currentMetrics.asthmaStatus}`}>
+                      {currentMetrics.asthmaStatus}
                     </div>
                   </div>
-                  <div className="vital-item">
-                    <span className="vital-icon">❤️</span>
-                    <div className="vital-info">
-                      <span className="vital-label">Heart Rate</span>
-                      <span 
-                        className="vital-value"
-                        style={{ color: getMetricStatusColor(healthMetrics.heart_rate?.status || 'normal') }}
-                      >
-                        {healthMetrics.heart_rate?.value?.toFixed(0) || '--'} {healthMetrics.heart_rate?.unit || 'bpm'}
+                )}
+              </div>
+            )}
+
+            {/* Alerts */}
+            {liveAlerts.length > 0 && (
+              <div className="alerts-section">
+                <h3>⚠️ Recent Alerts</h3>
+                <div className="alerts-list">
+                  {liveAlerts.slice(0, 5).map((alert, i) => (
+                    <div key={i} className={`alert-item ${alert.severity}`}>
+                      <span className="alert-icon">
+                        {alert.severity === 'critical' ? '🔴' : '🟡'}
                       </span>
-                    </div>
-                  </div>
-                  {healthMetrics.spo2 && (
-                    <div className="vital-item">
-                      <span className="vital-icon">🫁</span>
-                      <div className="vital-info">
-                        <span className="vital-label">SpO2</span>
-                        <span 
-                          className="vital-value"
-                          style={{ color: getMetricStatusColor(healthMetrics.spo2?.status || 'normal') }}
-                        >
-                          {healthMetrics.spo2?.value?.toFixed(0) || '--'}{healthMetrics.spo2?.unit || '%'}
-                        </span>
+                      <div className="alert-content">
+                        <span className="alert-type">{formatEventType(alert.type)}</span>
+                        <span className="alert-message">{alert.message}</span>
                       </div>
+                      <span className="alert-time">{formatTimeAgo(alert.timestamp)}</span>
                     </div>
-                  )}
-                  {healthMetrics.mood && (
-                    <div className="vital-item">
-                      <span className="vital-icon">😊</span>
-                      <div className="vital-info">
-                        <span className="vital-label">Mood</span>
-                        <span 
-                          className="vital-value"
-                          style={{ color: getMetricStatusColor(healthMetrics.mood?.status || 'neutral') }}
-                        >
-                          {((healthMetrics.mood?.value || 0) * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  {healthMetrics.activity && (
-                    <div className="vital-item">
-                      <span className="vital-icon">🏃</span>
-                      <div className="vital-info">
-                        <span className="vital-label">Activity</span>
-                        <span className="vital-value">
-                          {((healthMetrics.activity?.value || 0) * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  {healthMetrics.asthma_risk && (
-                    <div className="vital-item">
-                      <span className="vital-icon">🌬️</span>
-                      <div className="vital-info">
-                        <span className="vital-label">Asthma Risk</span>
-                        <span 
-                          className="vital-value"
-                          style={{ color: getMetricStatusColor(healthMetrics.asthma_risk?.status || 'low') }}
-                        >
-                          {((healthMetrics.asthma_risk?.value || 0) * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Alerts Section */}
-            <div className="dashboard-card alerts-card">
-              <h2>🚨 Alerts ({allAlerts.length})</h2>
-              {allAlerts.length === 0 ? (
-                <div className="no-alerts">
-                  <span className="check-icon">✅</span>
-                  <p>No alerts - everything looks good!</p>
+            {/* Child Stats */}
+            {selectedChild && (
+              <div className="child-stats-section">
+                <h3>🎮 {selectedChild.name}'s Progress</h3>
+                <div className="stats-row">
+                  <div className="stat-box">
+                    <span className="stat-icon">⭐</span>
+                    <span className="stat-value">{selectedChild.level}</span>
+                    <span className="stat-label">Level</span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-icon">✨</span>
+                    <span className="stat-value">{selectedChild.xp}</span>
+                    <span className="stat-label">XP</span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-icon">🔥</span>
+                    <span className="stat-value">{selectedChild.streak}</span>
+                    <span className="stat-label">Streak</span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-icon">💬</span>
+                    <span className="stat-value">{chatHistory.length}</span>
+                    <span className="stat-label">Chats</span>
+                  </div>
                 </div>
-              ) : (
-                <div className="alerts-list">
-                  {allAlerts.slice(0, 5).map((alert) => (
-                    <div 
-                      key={alert.id} 
-                      className={`alert-item ${reviewedAlerts.has(alert.id) ? 'reviewed' : ''} ${alert.severity === 'critical' ? 'critical' : ''}`}
-                    >
-                      <span className="alert-icon">
-                        {reviewedAlerts.has(alert.id) ? '✓' : alert.severity === 'critical' ? '🔴' : '⚠️'}
-                      </span>
-                      <div className="alert-content">
-                        <p className="alert-text">{alert.text}</p>
-                        <span className="alert-time">
-                          {new Date(alert.timestamp).toLocaleString()}
-                        </span>
-                      </div>
-                      {!reviewedAlerts.has(alert.id) && (
-                        <button 
-                          className="review-btn"
-                          onClick={() => markAlertReviewed(alert.id)}
-                        >
-                          ✓
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Smart Recommendations */}
-            <div className="dashboard-card recommendations-card">
-              <h2>💡 Recommendations</h2>
-              {recommendations.length === 0 ? (
-                <div className="no-data">
-                  <span className="thumbs-up">👍</span>
-                  <p>Everything looks great!</p>
-                </div>
-              ) : (
-                <div className="recommendations-list">
-                  {recommendations.map((rec, i) => (
-                    <div key={i} className={`recommendation-item priority-${rec.priority}`}>
-                      <span className="rec-icon">{rec.icon}</span>
-                      <p className="rec-text">{rec.text}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Quick Actions */}
-            <div className="dashboard-card actions-card">
-              <h2>⚡ Quick Actions</h2>
-              <div className="quick-actions">
-                <button className="action-btn">
-                  <span className="action-icon">🔔</span>
-                  <span>Set Reminder</span>
-                </button>
-                <button className="action-btn">
-                  <span className="action-icon">💌</span>
-                  <span>Send Encouragement</span>
-                </button>
-                <button className="action-btn" onClick={exportData}>
-                  <span className="action-icon">📄</span>
-                  <span>Export Report</span>
-                </button>
-                <button className="action-btn">
-                  <span className="action-icon">👨‍⚕️</span>
-                  <span>Share with Doctor</span>
-                </button>
               </div>
-            </div>
+            )}
           </div>
         )}
 
+        {/* Health History Tab */}
         {activeTab === 'health' && (
-          <div className="dashboard-grid">
-            {/* Recent Health Events */}
-            <div className="dashboard-card events-card">
-              <h2>📊 Recent Health Events</h2>
-              {healthEvents.length === 0 ? (
+          <div className="dashboard-content">
+            <div className="events-section">
+              <div className="section-header">
+                <h3>📋 Health Event History</h3>
+                <span className="event-count">{liveEvents.length} events</span>
+              </div>
+              
+              {liveEvents.length === 0 ? (
                 <div className="no-data">
-                  <span className="health-icon">💉</span>
+                  <span className="no-data-icon">📊</span>
                   <p>No health events recorded yet</p>
-                  <span className="sub-text">Run the simulator to see events</span>
+                  <span className="no-data-hint">Start the sensor stream to see events</span>
                 </div>
               ) : (
                 <div className="events-list">
-                  {healthEvents.slice(0, 10).map((event, i) => (
-                    <div 
-                      key={i} 
-                      className={`event-item ${event.safety_status.toLowerCase()}`}
-                    >
-                      <div className="event-header">
+                  {liveEvents.slice(0, 20).map((event, i) => (
+                    <div key={i} className={`event-row ${event.safety_status?.toLowerCase()}`}>
+                      <div className="event-status-indicator" style={{ backgroundColor: getStatusColor(event.safety_status) }} />
+                      <div className="event-main">
                         <span className="event-type">{formatEventType(event.type)}</span>
-                        <span 
-                          className="event-status"
-                          style={{ color: getStatusColor(event.safety_status) }}
-                        >
-                          {event.safety_status}
+                        <span className="event-value">
+                          {event.value?.toFixed(1)} {event.unit}
                         </span>
                       </div>
                       <div className="event-details">
-                        <span className="event-value">{event.value} {event.unit}</span>
-                        <span className="event-trend">📈 {event.trend}</span>
-                        <span className="event-score">💚 {event.health_score?.toFixed(0) || 'N/A'}</span>
+                        <span className="event-trend">📈 {event.trend || 'stable'}</span>
+                        <span className="event-score">💚 {event.health_score?.toFixed(0) || '--'}</span>
                       </div>
+                      <span className="event-time">{formatTimeAgo(event.timestamp)}</span>
                       {event.reasoning && (
-                        <p className="event-reasoning">{event.reasoning}</p>
+                        <div className="event-reasoning">{event.reasoning}</div>
                       )}
-                      <span className="event-time">
-                        {new Date(event.timestamp).toLocaleString()}
-                      </span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Mood Chart */}
-            <div className="dashboard-card mood-card">
-              <h2>📊 Mood This Week</h2>
-              {moodStats.total === 0 ? (
-                <div className="no-data">
-                  <p>No mood data yet</p>
-                </div>
-              ) : (
-                <div className="mood-chart">
-                  <div className="chart-bars">
-                    {Object.entries(moodStats.counts).map(([mood, count]) => (
-                      <div key={mood} className="chart-bar-container">
-                        <div 
-                          className="chart-bar"
-                          style={{ 
-                            height: `${getBarHeight(count)}%`,
-                            backgroundColor: moodColors[mood] || '#dfe6e9'
-                          }}
-                        >
-                          <span className="bar-count">{count}</span>
-                        </div>
-                        <span className="bar-label">{mood}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="chart-summary">
-                    {moodStats.total} mood entries this week
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Mood Timeline */}
-            <div className="dashboard-card timeline-card">
-              <h2>📅 Mood Timeline</h2>
-              <div className="timeline">
-                {moodStats.entries.slice(-7).reverse().map((entry, i) => (
-                  <div key={i} className="timeline-item">
-                    <span className="timeline-mood">{entry.mood}</span>
-                    <div className="timeline-info">
-                      <span className="timeline-label">{entry.label}</span>
-                      <span className="timeline-date">
-                        {new Date(entry.timestamp).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {moodStats.entries.length === 0 && (
-                  <p className="no-data">No mood entries yet</p>
-                )}
-              </div>
-            </div>
-
-            {/* Chat Summary */}
-            <div className="dashboard-card chat-card">
-              <h2>💬 Recent Conversations</h2>
-              <div className="chat-summary">
-                <div className="summary-stat">
-                  <span className="stat-number">{chatHistory.length}</span>
-                  <span className="stat-label">Total Messages</span>
-                </div>
-                <div className="summary-stat">
-                  <span className="stat-number">
-                    {chatHistory.filter(m => m.role === 'user').length}
-                  </span>
-                  <span className="stat-label">Child Messages</span>
-                </div>
-                <div className="summary-stat">
-                  <span className="stat-number">
-                    {chatHistory.filter(m => m.role === 'leo').length}
-                  </span>
-                  <span className="stat-label">Leo Responses</span>
-                </div>
-              </div>
-
-              <div className="chat-history">
-                <h3>Recent Messages</h3>
-                <div className="history-list">
-                  {chatHistory.slice(-10).reverse().map((msg, i) => (
-                    <div key={i} className={`history-item ${msg.role}`}>
-                      <span className="history-role">
-                        {msg.role === 'leo' ? '🦁' : '👤'}
-                      </span>
-                      <p className="history-text">{msg.text}</p>
-                    </div>
+            {/* Mood History */}
+            <div className="mood-section">
+              <h3>😊 Mood History</h3>
+              <div className="mood-summary">
+                <span>Total entries: {moodStats.total}</span>
+                <div className="mood-counts">
+                  {Object.entries(moodStats.counts).map(([mood, count]) => (
+                    <span key={mood} className="mood-count">{mood} {count}</span>
                   ))}
                 </div>
               </div>
@@ -775,133 +630,82 @@ export default function ParentDashboard({
           </div>
         )}
 
-        {activeTab === 'insights' && (
-          <div className="dashboard-grid">
-            {/* Topic Analysis */}
-            <div className="dashboard-card topics-card">
-              <h2>🏷️ Conversation Topics</h2>
-              {topicAnalysis.length === 0 ? (
+        {/* Medications Tab */}
+        {activeTab === 'medications' && (
+          <div className="dashboard-content">
+            <div className="medications-section">
+              <h3>💊 Medication Tracking</h3>
+              <p className="med-description">
+                Track medication reminders and mark when taken
+              </p>
+
+              {medicationsDue.length === 0 ? (
                 <div className="no-data">
-                  <p>Not enough conversation data yet</p>
+                  <span className="no-data-icon">💊</span>
+                  <p>No medication reminders</p>
+                  <span className="no-data-hint">Medication events will appear here</span>
                 </div>
               ) : (
-                <div className="topics-chart">
-                  {topicAnalysis.map((topic, i) => (
-                    <div key={i} className="topic-row">
-                      <div className="topic-label">
-                        <span>{topic.topic}</span>
-                        <span className="topic-count">{topic.count}</span>
+                <div className="medications-list">
+                  {medicationsDue.map((med, i) => (
+                    <div key={i} className={`medication-item ${med.taken ? 'taken' : 'pending'}`}>
+                      <div className="med-icon">
+                        {med.taken ? '✅' : '💊'}
                       </div>
-                      <div className="topic-bar-container">
-                        <div 
-                          className="topic-bar"
-                          style={{ 
-                            width: `${topic.percentage}%`,
-                            backgroundColor: getTopicColor(topic.topic)
-                          }}
-                        />
+                      <div className="med-info">
+                        <span className="med-type">{med.type}</span>
+                        <span className="med-time">{formatTimeAgo(med.time)}</span>
                       </div>
-                      <span className="topic-percentage">{topic.percentage}%</span>
+                      {!med.taken && (
+                        <button 
+                          className="med-take-btn"
+                          onClick={() => markMedicationTaken(i)}
+                        >
+                          Mark Taken
+                        </button>
+                      )}
+                      {med.taken && (
+                        <span className="med-taken-label">Taken ✓</span>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
-            </div>
 
-            {/* Engagement Insights */}
-            <div className="dashboard-card engagement-card">
-              <h2>📱 Engagement</h2>
-              <div className="engagement-stats">
-                <div className="engagement-stat">
-                  <div className="engagement-icon">🔥</div>
-                  <div className="engagement-value">{engagementData?.currentStreak || 0}</div>
-                  <div className="engagement-label">Current Streak</div>
-                </div>
-                <div className="engagement-stat">
-                  <div className="engagement-icon">🏆</div>
-                  <div className="engagement-value">{engagementData?.longestStreak || 0}</div>
-                  <div className="engagement-label">Best Streak</div>
-                </div>
-                <div className="engagement-stat">
-                  <div className="engagement-icon">💬</div>
-                  <div className="engagement-value">
-                    {engagementData?.avgMessagesPerDay?.toFixed(1) || 0}
-                  </div>
-                  <div className="engagement-label">Avg Msgs/Day</div>
-                </div>
-                <div className="engagement-stat">
-                  <div className="engagement-icon">📅</div>
-                  <div className="engagement-value">{engagementData?.totalSessions || 0}</div>
-                  <div className="engagement-label">Total Sessions</div>
-                </div>
-              </div>
-
-              {/* Activity Heatmap */}
-              <div className="activity-section">
-                <h3>Weekly Activity</h3>
-                <div className="activity-heatmap">
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => {
-                    const activity = engagementData?.dailyActivity?.[day] || 0;
-                    const intensity = Math.min(activity / 10, 1);
-                    return (
-                      <div key={i} className="heatmap-cell">
-                        <div 
-                          className="heatmap-box"
-                          style={{ 
-                            backgroundColor: `rgba(102, 126, 234, ${0.2 + intensity * 0.8})`
-                          }}
-                          title={`${day}: ${activity} messages`}
-                        />
-                        <span className="heatmap-label">{day}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Weekly Summary */}
-            <div className="dashboard-card summary-card">
-              <h2>📋 Weekly Summary</h2>
-              <div className="summary-content">
-                <div className="summary-row">
-                  <span className="summary-icon">😊</span>
-                  <span className="summary-text">
-                    Most common mood: {
-                      Object.entries(moodStats.counts)
-                        .sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'
-                    }
-                  </span>
-                </div>
-                <div className="summary-row">
-                  <span className="summary-icon">💬</span>
-                  <span className="summary-text">
-                    {chatHistory.filter(m => m.role === 'user').length} questions asked this week
-                  </span>
-                </div>
-                <div className="summary-row">
-                  <span className="summary-icon">🎯</span>
-                  <span className="summary-text">
-                    Top topic: {topicAnalysis[0]?.topic || 'General Chat'}
-                  </span>
-                </div>
-                <div className="summary-row">
-                  <span className="summary-icon">⚠️</span>
-                  <span className="summary-text">
-                    {allAlerts.length} alert{allAlerts.length !== 1 ? 's' : ''} this week
-                  </span>
-                </div>
-                <div className="summary-row">
-                  <span className="summary-icon">🩺</span>
-                  <span className="summary-text">
-                    {healthEvents.length} health events recorded
-                  </span>
-                </div>
-                <div className="summary-row">
-                  <span className="summary-icon">💚</span>
-                  <span className="summary-text">
-                    Average health score: {healthScore?.toFixed(0) || 'N/A'}
-                  </span>
+              {/* Quick Add Medication */}
+              <div className="quick-add-med">
+                <h4>Quick Log</h4>
+                <div className="quick-buttons">
+                  <button 
+                    className="quick-med-btn"
+                    onClick={() => setMedicationsDue(prev => [...prev, {
+                      type: 'Insulin',
+                      time: new Date().toISOString(),
+                      taken: true
+                    }])}
+                  >
+                    💉 Log Insulin
+                  </button>
+                  <button 
+                    className="quick-med-btn"
+                    onClick={() => setMedicationsDue(prev => [...prev, {
+                      type: 'Inhaler',
+                      time: new Date().toISOString(),
+                      taken: true
+                    }])}
+                  >
+                    🌬️ Log Inhaler
+                  </button>
+                  <button 
+                    className="quick-med-btn"
+                    onClick={() => setMedicationsDue(prev => [...prev, {
+                      type: 'Snack',
+                      time: new Date().toISOString(),
+                      taken: true
+                    }])}
+                  >
+                    🍎 Log Snack
+                  </button>
                 </div>
               </div>
             </div>

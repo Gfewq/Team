@@ -5,14 +5,14 @@ body {
   font-family: 'Nunito', sans-serif;
   background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); /* Cotton Candy Gradient */
   color: #2d3436;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow-y: auto;
 }
 
 .app-wrapper {
   max-width: 1200px;
   margin: 0 auto;
-  height: 100vh;
+  min-height: 100vh;
   padding: 20px;
   box-sizing: border-box;
   display: flex;
@@ -87,10 +87,6 @@ body {
 
 /* Health Mini Display under Avatar */
 .health-mini-display {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   gap: 16px;
   background: rgba(255, 255, 255, 0.9);
@@ -98,6 +94,7 @@ body {
   padding: 12px 20px;
   border-radius: 20px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  margin-top: 16px;
 }
 
 .mini-metric {
@@ -123,35 +120,24 @@ body {
   color: #636e72;
 }
 
-.avatar-zone {
-  position: relative;
-}
-
 /* 2. MAIN LAYOUT */
 .game-scene {
   display: grid;
   grid-template-columns: 1fr 1.2fr;
   gap: 40px;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   padding-bottom: 20px;
 }
 
 .avatar-zone {
+  position: relative;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   filter: drop-shadow(0 20px 40px rgba(0,0,0,0.15));
-}
-
-.chat-zone {
-  position: relative;
-  height: 85vh;
-  border-radius: 40px;
-  overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
-  border: 2px solid rgba(255, 255, 255, 0.6);
+  min-height: 300px;
 }
 
 @keyframes pulse-red {
@@ -184,10 +170,9 @@ body {
   transform: translateY(0);
 }
 
-/* Adjust chat-zone for mood tracker */
+/* Chat zone styling */
 .chat-zone {
   position: relative;
-  height: 85vh;
   border-radius: 40px;
   overflow: hidden;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
@@ -197,4 +182,428 @@ body {
   display: flex;
   flex-direction: column;
   padding: 16px;
+  min-height: 400px;
+  max-height: 70vh;
+}
+
+/* ========================================
+   KID MODE STYLES
+   ======================================== */
+
+/* Status HUD in kid mode - more compact and fun */
+.kid-mode .status-hud {
+  gap: 12px;
+  padding: 12px 24px;
+}
+
+.kid-mode .stat-pill {
+  font-size: 1.2rem;
+}
+
+/* Level and XP pills with fun colors */
+.level-pill {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  padding: 8px 16px;
+  border-radius: 20px;
+  color: #5d4037 !important;
+}
+
+.xp-pill {
+  background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+  padding: 8px 16px;
+  border-radius: 20px;
+  color: #2d3436 !important;
+}
+
+.status-pill {
+  padding: 8px 16px;
+  border-radius: 20px;
+}
+
+.status-pill.status-good {
+  background: linear-gradient(135deg, #00b894 0%, #55efc4 100%);
+  color: white !important;
+}
+
+.status-pill.status-warn {
+  background: linear-gradient(135deg, #fdcb6e 0%, #f39c12 100%);
+  color: white !important;
+}
+
+.status-pill.status-danger {
+  background: linear-gradient(135deg, #ff7675 0%, #d63031 100%);
+  color: white !important;
+}
+
+.stat-icon {
+  font-size: 1.3rem;
+}
+
+.stat-value {
+  font-weight: 700;
+}
+
+/* Mode Toggle Button */
+.mode-toggle {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mode-toggle.kid {
+  background: linear-gradient(135deg, #dfe6e9 0%, #b2bec3 100%);
+}
+
+.mode-toggle.detail {
+  background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+}
+
+.mode-toggle:hover {
+  transform: scale(1.1);
+}
+
+/* Kid-Friendly Health Display (under avatar) */
+.kid-health-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 12px 24px;
+  border-radius: 24px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  margin-top: 16px;
+}
+
+.health-face {
+  font-size: 3rem;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+.health-face.safe {
+  animation: happy-bounce 2s ease-in-out infinite;
+}
+
+.health-face.monitor {
+  animation: gentle-pulse 2s ease-in-out infinite;
+}
+
+.health-face.danger {
+  animation: worried-shake 0.5s ease-in-out infinite;
+}
+
+@keyframes happy-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes gentle-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes worried-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+.health-text {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2d3436;
+  text-align: center;
+}
+
+/* Encouragement Banner */
+.encouragement-banner {
+  background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+  color: #5d4037;
+  padding: 10px 24px;
+  text-align: center;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  animation: encouragement-glow 3s ease-in-out infinite;
+}
+
+@keyframes encouragement-glow {
+  0%, 100% { box-shadow: 0 4px 15px rgba(253, 203, 110, 0.4); }
+  50% { box-shadow: 0 4px 25px rgba(253, 203, 110, 0.7); }
+}
+
+/* Health Alert Banner - Kid Friendly version */
+.kid-mode .health-alert-banner {
+  background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.2rem;
+}
+
+.alert-emoji {
+  font-size: 1.8rem;
+  animation: alert-bounce 1s ease-in-out infinite;
+}
+
+@keyframes alert-bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-5px) rotate(-5deg); }
+}
+
+/* Detail mode - show more info */
+.detail-mode .stat-pill {
+  font-size: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .status-hud {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 20px;
+    border-radius: 30px;
+  }
+  
+  .stat-pill {
+    font-size: 1rem;
+  }
+  
+  .game-scene {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  
+  .avatar-zone {
+    max-height: 200px;
+  }
+  
+  .chat-zone {
+    height: 60vh;
+  }
+}
+
+/* Hide certain elements in kid mode */
+.kid-mode .health-mini-display {
+  display: none;
+}
+
+/* Parent button in kid mode is just an icon */
+.kid-mode .parent-btn {
+  padding: 10px 14px;
+  font-size: 1.2rem;
+}
+
+/* Mood status pill when mood is selected */
+.status-pill.status-mood {
+  background: linear-gradient(135deg, #74b9ff 0%, #a29bfe 100%);
+  color: white !important;
+}
+
+/* ========================================
+   HELP POPUP
+   ======================================== */
+.help-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  animation: fade-in 0.2s ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.help-popup {
+  background: white;
+  border-radius: 24px;
+  padding: 24px;
+  max-width: 320px;
+  width: 90%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  animation: popup-scale 0.3s ease;
+}
+
+@keyframes popup-scale {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.help-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.help-icon {
+  font-size: 2rem;
+}
+
+.help-popup-header h3 {
+  margin: 0;
+  flex: 1;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.4rem;
+  color: #2d3436;
+}
+
+.help-close {
+  background: #f1f2f6;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-close:hover {
+  background: #dfe6e9;
+}
+
+.help-popup-content {
+  text-align: center;
+}
+
+.help-popup-content p {
+  margin: 0 0 16px;
+  color: #636e72;
+}
+
+.help-number {
+  display: block;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #00b894;
+  text-decoration: none;
+  padding: 16px;
+  background: #e8f8f5;
+  border-radius: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.help-number:hover {
+  background: #d4efdf;
+  transform: scale(1.02);
+}
+
+.help-divider {
+  color: #b2bec3;
+  font-size: 0.9rem;
+  margin: 12px 0;
+}
+
+.emergency-number {
+  display: block;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #d63031;
+  text-decoration: none;
+  padding: 14px;
+  background: #fff5f5;
+  border-radius: 16px;
+  border: 2px solid #ff7675;
+  margin-bottom: 16px;
+  transition: all 0.2s;
+}
+
+.emergency-number:hover {
+  background: #ffe0e0;
+  transform: scale(1.02);
+}
+
+.help-note {
+  font-size: 0.9rem;
+  color: #636e72;
+  margin-top: 12px !important;
+}
+
+/* ========================================
+   FLOATING HELP BUTTON
+   ======================================== */
+.floating-help-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff7675 0%, #d63031 100%);
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(214, 48, 49, 0.4);
+  z-index: 1500;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: help-pulse 2s ease-in-out infinite;
+}
+
+.floating-help-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 8px 30px rgba(214, 48, 49, 0.5);
+}
+
+@keyframes help-pulse {
+  0%, 100% { box-shadow: 0 6px 20px rgba(214, 48, 49, 0.4); }
+  50% { box-shadow: 0 6px 30px rgba(214, 48, 49, 0.7); }
+}
+
+/* ========================================
+   HELP MODE - RED BACKGROUND ANIMATION
+   ======================================== */
+.app-wrapper.help-mode {
+  animation: help-background 0.5s ease-in-out;
+}
+
+.app-wrapper.help-mode::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255, 107, 107, 0.3) 0%, rgba(214, 48, 49, 0.1) 100%);
+  pointer-events: none;
+  z-index: 50;
+  animation: help-glow 1s ease-in-out infinite alternate;
+}
+
+@keyframes help-background {
+  0% { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+  50% { background: linear-gradient(135deg, #ff7675 0%, #fab1a0 100%); }
+  100% { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+}
+
+@keyframes help-glow {
+  0% { opacity: 0.3; }
+  100% { opacity: 0.6; }
 }

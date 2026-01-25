@@ -1,0 +1,145 @@
+.child-selector {
+  position: relative;
+  z-index: 200;
+}
+
+.selector-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 25px;
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #5d4037;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(252, 182, 159, 0.4);
+}
+
+.selector-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(252, 182, 159, 0.5);
+}
+
+.selected-avatar {
+  font-size: 1.5rem;
+}
+
+.selected-name {
+  font-weight: 700;
+}
+
+.selected-level {
+  background: rgba(255, 255, 255, 0.6);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+
+.dropdown-arrow {
+  font-size: 0.7rem;
+  margin-left: 5px;
+}
+
+.selector-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 280px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.child-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 18px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.child-option:hover {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 20%);
+}
+
+.child-option.selected {
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+}
+
+.option-avatar {
+  font-size: 2rem;
+}
+
+.option-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.option-name {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2d3436;
+}
+
+.option-details {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  color: #636e72;
+  text-transform: capitalize;
+}
+
+.option-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.option-level {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6c5ce7;
+  background: rgba(108, 92, 231, 0.1);
+  padding: 3px 10px;
+  border-radius: 10px;
+}
+
+.option-streak {
+  font-size: 0.85rem;
+  color: #e17055;
+}
+
+/* Loading & Empty states */
+.child-selector.loading .loading-text,
+.child-selector.empty .empty-text {
+  padding: 10px 18px;
+  font-family: 'Nunito', sans-serif;
+  color: #636e72;
+}

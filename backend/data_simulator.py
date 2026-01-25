@@ -9,6 +9,8 @@ Advanced pediatric medical IoT simulator with:
 - LLM-powered safety analysis (DeepSeek V3.2)
 - Event correlation & pattern recognition
 - Real-time statistics & health scoring
+- Per-child profiles with history storage
+- Predefined scenario-based simulation
 """
 
 import json
@@ -17,11 +19,12 @@ import random
 import asyncio
 import math
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, Generator
 from enum import Enum
 from collections import deque
 import aiohttp
 import os
+from pathlib import Path
 from dataclasses import dataclass, asdict, field
 
 
@@ -81,11 +84,19 @@ class HealthEvent:
 class MedicalDataSimulator:
     """Advanced medical IoT simulator with pattern recognition & analytics"""
     
-    def __init__(self, deepseek_api_key: Optional[str] = None, api_base: str = "https://api.deepseek.com"):
+    def __init__(
+        self, 
+        child_id: Optional[str] = None,
+        child_profile: Optional[Dict[str, Any]] = None,
+        deepseek_api_key: Optional[str] = None, 
+        api_base: str = "https://api.deepseek.com"
+    ):
         """
         Initialize the advanced data simulator
         
         Args:
+            child_id: ID of the child to simulate (loads profile from storage)
+            child_profile: Direct child profile dict (alternative to child_id)
             deepseek_api_key: API key for DeepSeek V3.2 (optional, will use env var if not provided)
             api_base: Base URL for DeepSeek API
         """
@@ -93,11 +104,30 @@ class MedicalDataSimulator:
         self.api_base = api_base
         self.session: Optional[aiohttp.ClientSession] = None
         
-        # Baseline values for a 7-year-old child with Type 1 Diabetes
-        self.baseline_glucose = 5.5  # mmol/L (normal range: 4-7)
-        self.baseline_heart_rate = 90  # bpm (normal: 70-110 for age 7)
+        # Load child profile if provided
+        self.child_id = child_id
+        self.child_profile = child_profile
+        
+        if child_id and not child_profile:
+            self.child_profile = self._load_child_profile(child_id)
+        
+        # Set baselines from child profile or use defaults
+        if self.child_profile:
+            self.child_id = self.child_profile.get("id", child_id)
+            self.baseline_glucose = self.child_profile.get("baseline_glucose", 5.5)
+            self.baseline_heart_rate = self.child_profile.get("baseline_heart_rate", 90)
+            self.baseline_spo2 = self.child_profile.get("baseline_spo2", 98.0)
+            self.child_age = self.child_profile.get("age", 7)
+            self.child_condition = self.child_profile.get("condition", "diabetes")
+        else:
+            # Default: 7-year-old with Type 1 Diabetes
+            self.baseline_glucose = 5.5  # mmol/L (normal range: 4-7)
+            self.baseline_heart_rate = 90  # bpm (normal: 70-110 for age 7)
+            self.baseline_spo2 = 98.0  # Oxygen saturation %
+            self.child_age = 7
+            self.child_condition = "diabetes"
+        
         self.baseline_temperature = 36.8  # Celsius
-        self.baseline_spo2 = 98.0  # Oxygen saturation %
         self.baseline_respiratory_rate = 22  # breaths/min
         self.baseline_systolic_bp = 95  # mmHg
         self.baseline_diastolic_bp = 60  # mmHg
@@ -141,6 +171,50 @@ class MedicalDataSimulator:
             "pollen_count": 0.3,  # 0-1 (1 = very high)
             "humidity": 0.5,  # 0-1
             "temperature": 22.0  # Celsius
+        }
+        
+        # Data directory for per-child history
+        self.data_dir = Path(__file__).parent.parent / "data"
+        self.history_dir = self.data_dir / "history"
+    
+    def _load_child_profile(self, child_id: str) -> Optional[Dict[str, Any]]:
+        """Load a child profile from storage"""
+        try:
+            from backend.child_profiles import get_child
+            child = get_child(child_id)
+            if child:
+                return child.model_dump()
+        except Exception as e:
+            print(f"Error loading child profile {child_id}: {e}")
+        return None
+    
+    def _get_history_file(self) -> Path:
+        """Get the path to this child's history file"""
+        self.history_dir.mkdir(parents=True, exist_ok=True)
+        if self.child_id:
+            return self.history_dir / f"{self.child_id}.jsonl"
+        return self.data_dir.parent / "events.jsonl"
+    
+    def _append_to_history(self, event: Dict[str, Any]):
+        """Append an event to the child's history file"""
+        history_file = self._get_history_file()
+        
+        # Add child_id to event
+        if self.child_id:
+            event["child_id"] = self.child_id
+        
+        with open(history_file, 'a') as f:
+            f.write(json.dumps(event) + '\n')
+    
+    def get_profile_dict(self) -> Dict[str, Any]:
+        """Get the child profile as a dictionary for scenario functions"""
+        return {
+            "id": self.child_id,
+            "age": self.child_age,
+            "condition": self.child_condition,
+            "baseline_glucose": self.baseline_glucose,
+            "baseline_heart_rate": self.baseline_heart_rate,
+            "baseline_spo2": self.baseline_spo2
         }
         
     async def __aenter__(self):
@@ -788,9 +862,12 @@ Respond ONLY with a JSON object in this exact format:
         else:
             return SafetyStatus.SAFE, "Event within normal parameters"
     
-    async def generate_and_analyze_event(self) -> Dict[str, Any]:
+    async def generate_and_analyze_event(self, save_to_history: bool = True) -> Dict[str, Any]:
         """
         Generate a health event, analyze it with LLM, and return formatted JSON
+        
+        Args:
+            save_to_history: Whether to save the event to child's history file
         
         Returns:
             Dictionary ready to be serialized to JSON
@@ -808,6 +885,14 @@ Respond ONLY with a JSON object in this exact format:
         event.safety_status = safety_status.value
         event.llm_reasoning = reasoning
         
+        # Update stats
+        if safety_status == SafetyStatus.DANGER:
+            self.stats["danger_events"] += 1
+        elif safety_status == SafetyStatus.MONITOR:
+            self.stats["monitor_events"] += 1
+        else:
+            self.stats["safe_events"] += 1
+        
         # Convert to dictionary
         event_dict = asdict(event)
         
@@ -821,7 +906,120 @@ Respond ONLY with a JSON object in this exact format:
             "uptime_seconds": round(time.time() - self.start_time, 0)
         }
         
+        # Save to history if enabled
+        if save_to_history and self.child_id:
+            self._append_to_history(event_dict)
+        
         return event_dict
+    
+    async def run_scenario(
+        self, 
+        scenario_id: str, 
+        num_events: int = None,
+        event_interval_seconds: int = 2,
+        save_to_history: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Run a predefined scenario and return all generated events.
+        
+        Args:
+            scenario_id: ID of the scenario to run (e.g., "hypoglycemia_episode")
+            num_events: Optional override for number of events
+            event_interval_seconds: Delay between events (for real-time feel)
+            save_to_history: Whether to save events to the child's history file
+        
+        Returns:
+            List of all generated events
+        """
+        from backend.scenarios import run_scenario, get_scenario
+        
+        # Get scenario info
+        scenario = get_scenario(scenario_id)
+        
+        # Get child profile for scenario
+        child_profile = self.get_profile_dict()
+        
+        # Run scenario and collect events
+        events = []
+        for event in run_scenario(scenario_id, child_profile, num_events):
+            # Add child_id to event
+            if self.child_id:
+                event["child_id"] = self.child_id
+            
+            # Update statistics
+            self.stats["total_events"] += 1
+            status = event.get("safety_status", "SAFE")
+            if status == "DANGER":
+                self.stats["danger_events"] += 1
+            elif status == "MONITOR":
+                self.stats["monitor_events"] += 1
+            else:
+                self.stats["safe_events"] += 1
+            
+            # Save to history if requested
+            if save_to_history:
+                self._append_to_history(event)
+            
+            events.append(event)
+            
+            # Small delay for real-time feel (if running interactively)
+            if event_interval_seconds > 0:
+                await asyncio.sleep(event_interval_seconds)
+        
+        return events
+    
+    async def run_scenario_stream(
+        self, 
+        scenario_id: str, 
+        num_events: int = None,
+        event_interval_seconds: int = 2,
+        save_to_history: bool = True
+    ):
+        """
+        Run a scenario and yield events one at a time (for streaming).
+        
+        Args:
+            scenario_id: ID of the scenario to run
+            num_events: Optional override for number of events
+            event_interval_seconds: Delay between events
+            save_to_history: Whether to save events to history
+        
+        Yields:
+            Event dictionaries one at a time
+        """
+        from backend.scenarios import run_scenario, get_scenario
+        
+        # Get scenario info
+        scenario = get_scenario(scenario_id)
+        
+        # Get child profile for scenario
+        child_profile = self.get_profile_dict()
+        
+        # Run scenario and yield events
+        for event in run_scenario(scenario_id, child_profile, num_events):
+            # Add child_id to event
+            if self.child_id:
+                event["child_id"] = self.child_id
+            
+            # Update statistics
+            self.stats["total_events"] += 1
+            status = event.get("safety_status", "SAFE")
+            if status == "DANGER":
+                self.stats["danger_events"] += 1
+            elif status == "MONITOR":
+                self.stats["monitor_events"] += 1
+            else:
+                self.stats["safe_events"] += 1
+            
+            # Save to history if requested
+            if save_to_history:
+                self._append_to_history(event)
+            
+            yield event
+            
+            # Small delay for real-time feel
+            if event_interval_seconds > 0:
+                await asyncio.sleep(event_interval_seconds)
     
     def _get_status_color(self, status: str) -> str:
         """Get ANSI color code for status"""
@@ -1204,8 +1402,19 @@ Respond ONLY with a JSON object in this exact format:
         print(f"{header_color}{bold}{'🏥 Play-Protect Data Simulator 🤖'.center(80)}{reset}")
         print(f"{header_color}{'═'*80}{reset}")
         print(f"\n{bold}⚙️  Configuration:{reset}")
+        
+        # Show child info if available
+        if self.child_profile:
+            child_name = self.child_profile.get("name", "Unknown")
+            print(f"  👶 Child: {child_name} (Age {self.child_age}, {self.child_condition})")
+        else:
+            print(f"  👶 Child: Default (Age 7, diabetes)")
+        
         print(f"  📊 Event Interval: {interval_seconds} seconds")
-        print(f"  📁 Output File: {output_file if output_file else 'Console only'}")
+        history_file = self._get_history_file()
+        print(f"  📁 History File: {history_file}")
+        if output_file:
+            print(f"  📁 Additional Output: {output_file}")
         print(f"  🤖 LLM Analysis: {'Enabled' if self.api_key else 'Disabled (rule-based)'}")
         print(f"\n{bold}💡 Tip:{reset} Press Ctrl+C to stop\n")
         print(f"{header_color}{'─'*80}{reset}\n")
@@ -1319,7 +1528,10 @@ Respond ONLY with a JSON object in this exact format:
                     unit = event.get('unit', '')
                     print(f"{status_color}[{datetime.now().strftime('%H:%M:%S')}]{reset} {status_icon} {event_type_display:25s} {value:6.2f} {unit:8s} {status_color}{status:^8s}{reset}")
                 
-                # Output to file if specified
+                # Save to child's history file
+                self._append_to_history(event)
+                
+                # Also output to custom file if specified
                 if output_file:
                     with open(output_file, 'a') as f:
                         f.write(json.dumps(event) + '\n')

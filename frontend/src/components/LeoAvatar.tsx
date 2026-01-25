@@ -2,13 +2,14 @@ import './LeoAvatar.css'
 
 interface LeoAvatarProps {
   isSpeaking?: boolean
+  isWorried?: boolean
 }
 
-const LeoAvatar = ({ isSpeaking = false }: LeoAvatarProps) => {
+const LeoAvatar = ({ isSpeaking = false, isWorried = false }: LeoAvatarProps) => {
   return (
     <div className="leo-container">
       {/* 🦁 This class toggles the 'speaking' animation in CSS */}
-      <div className={`leo-avatar ${isSpeaking ? 'speaking' : ''}`}>
+      <div className={`leo-avatar ${isSpeaking ? 'speaking' : ''} ${isWorried ? 'worried' : ''}`}>
         
         <svg viewBox="0 -30 240 330" className="leo-svg">
           <defs>

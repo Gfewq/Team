@@ -2,7 +2,7 @@
   <img src="https://em-content.zobj.net/source/apple/391/lion_1f981.png" width="120" alt="Leo the Lion"/>
 </p>
 
-<h1 align="center">🦁 Leo the Lion</h1>
+<h1 align="center">Leo the Lion!</h1>
 <h3 align="center">AI-Powered Health Companion for Children with Chronic Conditions</h3>
 
 <p align="center">
@@ -54,6 +54,9 @@
 ## 🏗️ Technical Architecture
 
 ```
+## 🏗️ Technical Architecture
+
+```
 ┌─────────────────────────────────────────────────────────────┐
 │                      FRONTEND (React + TS)                  │
 │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐ │
@@ -79,6 +82,8 @@
 │  │  └─────────────┘    └─────────────┘    └─────────────┘  ││
 │  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
+```
+
 ```
 
 ---

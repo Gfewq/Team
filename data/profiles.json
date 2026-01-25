@@ -44,6 +44,21 @@
       "level": 1,
       "streak": 1,
       "created_at": "2026-01-22T09:15:00"
+    },
+    {
+      "id": "child_d0ee0f40",
+      "name": "Ishan",
+      "age": 7,
+      "condition": "diabetes",
+      "parent_name": "Ujjawal",
+      "avatar": "lion",
+      "baseline_glucose": 5.5,
+      "baseline_heart_rate": 90,
+      "baseline_spo2": 98.0,
+      "xp": 0,
+      "level": 1,
+      "streak": 0,
+      "created_at": "2026-01-24T23:35:49.350146"
     }
   ]
 }

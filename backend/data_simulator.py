@@ -150,6 +150,12 @@ class MedicalDataSimulator:
         self.sleep_state = "awake"  # "awake", "light_sleep", "deep_sleep"
         self.start_time = time.time()
         
+        # Rate limiting for event types
+        self.last_medication_event_time = 0  # Last time we sent a medication reminder
+        self.last_spo2_event_time = 0  # Last SpO2 event time
+        self.medication_event_interval = 120  # Seconds between medication reminders (2 min)
+        self.spo2_event_interval = 20  # Seconds between SpO2 events
+        
         # Historical data for trend analysis (rolling windows)
         self.glucose_history = deque(maxlen=20)
         self.heart_rate_history = deque(maxlen=20)
@@ -485,50 +491,94 @@ class MedicalDataSimulator:
         )
     
     def generate_medication_event(self) -> HealthEvent:
-        """Generate medication due reminder with glucose-based urgency"""
+        """Generate medication due reminder based on child's condition"""
         time_since_medication = time.time() - self.last_medication_time
         hours_since = time_since_medication / 3600
         
-        # Base urgency on time
-        if hours_since > 5:
-            base_urgency = UrgencyLevel.HIGH
-        elif hours_since > 4:
-            base_urgency = UrgencyLevel.MEDIUM
+        # Determine medication type based on condition
+        if self.child_condition == "asthma":
+            # Asthma: Inhaler reminder based on respiratory risk
+            if self.asthma_risk_level > 0.6:
+                urgency = UrgencyLevel.HIGH
+                med_type = "rescue_inhaler"
+                dosage = "2 puffs"
+                action = "use_rescue_inhaler"
+            elif self.asthma_risk_level > 0.4:
+                urgency = UrgencyLevel.MEDIUM
+                med_type = "maintenance_inhaler"
+                dosage = "1 puff"
+                action = "preventive_dose"
+            else:
+                urgency = UrgencyLevel.LOW
+                med_type = "maintenance_inhaler"
+                dosage = "1 puff"
+                action = "scheduled_dose"
+            
+            correlations = []
+            if self.asthma_risk_level > 0.5:
+                correlations.append("elevated_asthma_risk")
+            
+            return HealthEvent(
+                timestamp=datetime.now().isoformat(),
+                event_type=EventType.MEDICATION_DUE.value,
+                value=round(self.asthma_risk_level, 2),
+                unit="risk_level",
+                urgency=urgency.value,
+                metadata={
+                    "device": "smart_medication_tracker",
+                    "device_id": "MED-7YO-001",
+                    "medication_type": med_type,
+                    "dosage": dosage,
+                    "scheduled_time": hours_since > 4,
+                    "asthma_risk_at_reminder": round(self.asthma_risk_level, 2),
+                    "recommended_action": action
+                },
+                trend="stable",
+                anomaly_score=0.3 if self.asthma_risk_level > 0.6 else 0.1,
+                correlation_tags=correlations,
+                health_score=self._calculate_health_score()
+            )
         else:
-            base_urgency = UrgencyLevel.LOW
-        
-        # Escalate if glucose is high (needs insulin)
-        if self.current_glucose > 11.0:
-            urgency = UrgencyLevel.CRITICAL if base_urgency == UrgencyLevel.HIGH else UrgencyLevel.HIGH
-        elif self.current_glucose > 9.0:
-            urgency = UrgencyLevel.HIGH if base_urgency == UrgencyLevel.MEDIUM else base_urgency
-        else:
-            urgency = base_urgency
-        
-        correlations = []
-        if self.current_glucose > 9.0:
-            correlations.append("hyperglycemia_present")
-        
-        return HealthEvent(
-            timestamp=datetime.now().isoformat(),
-            event_type=EventType.MEDICATION_DUE.value,
-            value=round(hours_since, 2),
-            unit="hours_since_last_dose",
-            urgency=urgency.value,
-            metadata={
-                "device": "smart_medication_tracker",
-                "device_id": "MED-7YO-001",
-                "medication_type": "insulin",
-                "dosage": "5 units",
-                "scheduled_time": True,
-                "glucose_at_reminder": round(self.current_glucose, 2),
-                "recommended_action": "administer_insulin" if self.current_glucose > 9.0 else "scheduled_dose"
-            },
-            trend="stable",
-            anomaly_score=0.3 if hours_since > 5 else 0.1,
-            correlation_tags=correlations,
-            health_score=self._calculate_health_score()
-        )
+            # Diabetes: Insulin reminder based on glucose
+            if hours_since > 5:
+                base_urgency = UrgencyLevel.HIGH
+            elif hours_since > 4:
+                base_urgency = UrgencyLevel.MEDIUM
+            else:
+                base_urgency = UrgencyLevel.LOW
+            
+            # Escalate if glucose is high (needs insulin)
+            if self.current_glucose > 11.0:
+                urgency = UrgencyLevel.CRITICAL if base_urgency == UrgencyLevel.HIGH else UrgencyLevel.HIGH
+            elif self.current_glucose > 9.0:
+                urgency = UrgencyLevel.HIGH if base_urgency == UrgencyLevel.MEDIUM else base_urgency
+            else:
+                urgency = base_urgency
+            
+            correlations = []
+            if self.current_glucose > 9.0:
+                correlations.append("hyperglycemia_present")
+            
+            return HealthEvent(
+                timestamp=datetime.now().isoformat(),
+                event_type=EventType.MEDICATION_DUE.value,
+                value=round(hours_since, 2),
+                unit="hours_since_last_dose",
+                urgency=urgency.value,
+                metadata={
+                    "device": "smart_medication_tracker",
+                    "device_id": "MED-7YO-001",
+                    "medication_type": "insulin",
+                    "dosage": "5 units",
+                    "scheduled_time": True,
+                    "glucose_at_reminder": round(self.current_glucose, 2),
+                    "recommended_action": "administer_insulin" if self.current_glucose > 9.0 else "scheduled_dose"
+                },
+                trend="stable",
+                anomaly_score=0.3 if hours_since > 5 else 0.1,
+                correlation_tags=correlations,
+                health_score=self._calculate_health_score()
+            )
     
     def generate_asthma_risk_event(self) -> HealthEvent:
         """Generate asthma risk assessment based on environmental factors"""
@@ -678,21 +728,49 @@ class MedicalDataSimulator:
         )
     
     def generate_random_event(self) -> HealthEvent:
-        """Generate a random health event with weighted probabilities"""
-        event_generators = [
-            self.generate_glucose_event,
-            self.generate_heart_rate_event,
-            self.generate_mood_event,
-            self.generate_medication_event,
-            self.generate_asthma_risk_event,
-            self.generate_oxygen_saturation_event,
-            self.generate_activity_event,
-        ]
+        """Generate a random health event with weighted probabilities and rate limiting"""
+        current_time = time.time()
         
-        # Weight events: glucose most critical, then HR, mood, etc.
-        weights = [0.35, 0.20, 0.15, 0.10, 0.08, 0.07, 0.05]
+        # Check rate limits for specific event types
+        can_generate_medication = (current_time - self.last_medication_event_time) >= self.medication_event_interval
+        can_generate_spo2 = (current_time - self.last_spo2_event_time) >= self.spo2_event_interval
+        
+        # Build generators list with rate limiting
+        event_generators = [
+            self.generate_glucose_event,      # 0
+            self.generate_heart_rate_event,   # 1
+            self.generate_mood_event,         # 2
+            self.generate_activity_event,     # 3
+        ]
+        weights = [0.40, 0.30, 0.15, 0.10]
+        
+        # Add asthma risk if applicable
+        if self.child_condition in ["asthma", "both"]:
+            event_generators.append(self.generate_asthma_risk_event)
+            weights.append(0.05)
+        
+        # Add medication event only if rate limit allows
+        if can_generate_medication:
+            event_generators.append(self.generate_medication_event)
+            weights.append(0.03)  # Lower weight for medication
+        
+        # Add SpO2 only if rate limit allows
+        if can_generate_spo2:
+            event_generators.append(self.generate_oxygen_saturation_event)
+            weights.append(0.05)
+        
+        # Normalize weights
+        total = sum(weights)
+        weights = [w/total for w in weights]
+        
         generator = random.choices(event_generators, weights=weights)[0]
         event = generator()
+        
+        # Update rate limit timestamps
+        if event.event_type == EventType.MEDICATION_DUE.value:
+            self.last_medication_event_time = current_time
+        elif event.event_type == EventType.OXYGEN_SATURATION.value:
+            self.last_spo2_event_time = current_time
         
         # Update statistics
         self.stats["total_events"] += 1

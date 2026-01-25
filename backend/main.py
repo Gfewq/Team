@@ -213,7 +213,7 @@ def get_health_statistics():
     hr_values = [e.get("value", 85) for e in events if "heart" in e.get("event_type", "")]
     avg_hr = sum(hr_values) / len(hr_values) if hr_values else 85
     
-    anomalies = sum(1 for e in events if e.get("anomaly_score", 0) > 0.7)
+    anomalies = sum(1 for e in events if (e.get("anomaly_score") or 0) > 0.7)
     
     return {
         "total_events": len(events),
@@ -443,7 +443,7 @@ def api_get_child_statistics(child_id: str):
     hr_values = [e.get("value", child.baseline_heart_rate) for e in events if "heart" in e.get("event_type", "")]
     avg_hr = sum(hr_values) / len(hr_values) if hr_values else child.baseline_heart_rate
     
-    anomalies = sum(1 for e in events if e.get("anomaly_score", 0) > 0.7)
+    anomalies = sum(1 for e in events if (e.get("anomaly_score") or 0) > 0.7)
     
     return {
         "child_id": child_id,

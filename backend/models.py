@@ -7,8 +7,11 @@ class UserMessage(BaseModel):
     user_id: str
     message: str
     age: int = 7
-    condition: Literal["diabetes", "asthma"] = "diabetes"
+    condition: Literal["diabetes", "asthma", "both", "none"] = "diabetes"
     current_mood: Optional[str] = None
+    is_kid_mode: bool = True  # True for kid-friendly, False for parent professional mode
+    child_id: Optional[str] = None  # ID of the child being discussed
+    child_name: Optional[str] = None  # Name of the child
 
 
 class ChildProfile(BaseModel):
@@ -16,7 +19,7 @@ class ChildProfile(BaseModel):
     id: str
     name: str
     age: int
-    condition: Literal["diabetes", "asthma", "both"]
+    condition: Literal["diabetes", "asthma", "both", "none"]
     parent_name: str
     avatar: Optional[str] = "lion"
     # Baseline health values (age/condition appropriate)
@@ -37,7 +40,7 @@ class ChildProfileCreate(BaseModel):
     """Request model for creating a child profile"""
     name: str
     age: int
-    condition: Literal["diabetes", "asthma", "both"]
+    condition: Literal["diabetes", "asthma", "both", "none"] = "none"
     parent_name: str
     avatar: Optional[str] = "lion"
     baseline_glucose: Optional[float] = None
@@ -48,7 +51,7 @@ class ChildProfileUpdate(BaseModel):
     """Request model for updating a child profile"""
     name: Optional[str] = None
     age: Optional[int] = None
-    condition: Optional[Literal["diabetes", "asthma", "both"]] = None
+    condition: Optional[Literal["diabetes", "asthma", "both", "none"]] = None
     parent_name: Optional[str] = None
     avatar: Optional[str] = None
     baseline_glucose: Optional[float] = None

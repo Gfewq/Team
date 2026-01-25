@@ -179,7 +179,12 @@ export default function ParentDashboard({
               }
               if (!found.mood && type.includes('mood')) {
                 found.mood = true;
-                const moodVal = typeof value === 'number' ? value : 0.5;
+                // Mood values can be 0-1 (decimal) or 0-100 (percentage)
+                let moodVal = typeof value === 'number' ? value : 0.5;
+                // If value is greater than 1, assume it's already a percentage
+                if (moodVal > 1) moodVal = moodVal / 100;
+                // Clamp to valid range
+                moodVal = Math.max(0, Math.min(1, moodVal));
                 metrics.mood = {
                   value: Math.round(moodVal * 100),
                   unit: '%',
@@ -205,7 +210,12 @@ export default function ParentDashboard({
               }
               if (!found.activity && type.includes('activity')) {
                 found.activity = true;
-                const actVal = typeof value === 'number' ? value : 0.5;
+                // Activity values can be 0-1 (decimal) or 0-100 (percentage)
+                let actVal = typeof value === 'number' ? value : 0.5;
+                // If value is greater than 1, assume it's already a percentage
+                if (actVal > 1) actVal = actVal / 100;
+                // Clamp to valid range
+                actVal = Math.max(0, Math.min(1, actVal));
                 metrics.activity = {
                   value: Math.round(actVal * 100),
                   unit: '%',
@@ -259,12 +269,19 @@ export default function ParentDashboard({
         const existing = new Set(prev.map(m => m.time));
         const newMeds = medEvents
           .filter(e => !existing.has(e.timestamp))
-          .map(e => ({
-            type: 'Insulin',
-            time: e.timestamp,
-            taken: false
-          }));
-        return [...prev, ...newMeds].slice(-10);
+          .map(e => {
+            // Get medication type from metadata
+            const medType = e.metadata?.medication_type || 'medication';
+            const displayType = medType.includes('inhaler') ? 'Inhaler' : 
+                               medType === 'insulin' ? 'Insulin' : 
+                               medType.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+            return {
+              type: displayType,
+              time: e.timestamp,
+              taken: false
+            };
+          });
+        return [...prev, ...newMeds].slice(-5); // Keep max 5 medication reminders
       });
     }
   }, [liveEvents]);
@@ -478,16 +495,22 @@ export default function ParentDashboard({
                 </div>
 
                 <div className="metric-card">
-                  <div className="metric-icon">😊</div>
+                  <div className="metric-icon">{moodHistory.length > 0 ? moodHistory[moodHistory.length - 1].mood : '😊'}</div>
                   <div className="metric-info">
                     <span className="metric-label">Mood</span>
                     <span className="metric-value" style={{ color: getStatusColor(currentMetrics.moodStatus) }}>
-                      {typeof currentMetrics.mood === 'number' ? (currentMetrics.mood * 100).toFixed(0) + '%' : currentMetrics.mood}
+                      {moodHistory.length > 0 ? moodHistory[moodHistory.length - 1].label : 'Not set'}
                     </span>
-                    <span className="metric-unit">score</span>
+                    <span className="metric-unit">Last reported</span>
                   </div>
-                  <div className={`metric-status ${currentMetrics.moodStatus}`}>
-                    {currentMetrics.moodStatus}
+                  <div className={`metric-status ${moodHistory.length > 0 ? 
+                    (moodHistory[moodHistory.length - 1].label === 'Sad' || moodHistory[moodHistory.length - 1].label === 'Sick' ? 'low' : 
+                     moodHistory[moodHistory.length - 1].label === 'Tired' ? 'moderate' : 'good') : 'neutral'}`}>
+                    {moodHistory.length > 0 ? 
+                      (moodHistory[moodHistory.length - 1].label === 'Happy' ? 'great' : 
+                       moodHistory[moodHistory.length - 1].label === 'Okay' ? 'okay' :
+                       moodHistory[moodHistory.length - 1].label === 'Tired' ? 'tired' :
+                       moodHistory[moodHistory.length - 1].label === 'Sad' ? 'low' : 'needs attention') : 'not set'}
                   </div>
                 </div>
 
@@ -496,9 +519,13 @@ export default function ParentDashboard({
                   <div className="metric-info">
                     <span className="metric-label">Activity</span>
                     <span className="metric-value">
-                      {typeof currentMetrics.activity === 'number' ? (currentMetrics.activity * 100).toFixed(0) + '%' : currentMetrics.activity}
+                      {currentMetrics.activityStatus === 'active' ? 'Active' : 
+                       currentMetrics.activityStatus === 'sedentary' ? 'Resting' : 'Moderate'}
                     </span>
-                    <span className="metric-unit">score</span>
+                    <span className="metric-unit">
+                      {currentMetrics.activityStatus === 'sedentary' ? 'Encourage movement' : 
+                       currentMetrics.activityStatus === 'active' ? 'Great energy!' : 'Normal activity'}
+                    </span>
                   </div>
                   <div className={`metric-status ${currentMetrics.activityStatus}`}>
                     {currentMetrics.activityStatus}

@@ -14,14 +14,117 @@ interface ChatBoxProps {
   currentMood?: MoodEntry | null;
   onHelpDetected?: () => void;
   sosTrigger?: number;
+  isKidMode?: boolean;
+  childName?: string;
+  childId?: string;
+  childCondition?: string;
+  childAge?: number;
 }
 
-export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMood, onHelpDetected, sosTrigger }: ChatBoxProps) {
+export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMood, onHelpDetected, sosTrigger, isKidMode = true, childName, childId, childCondition = 'diabetes', childAge = 7 }: ChatBoxProps) {
+  const getInitialMessage = () => {
+    if (isKidMode) {
+      return `Hi${childName ? ` ${childName}` : ''}! I'm Leo! How is your tummy feeling? 🦁`;
+    }
+    return `Hello. I'm Leo, ${childName ? `${childName}'s` : 'your child\'s'} health companion. I can help answer questions about their health management. How may I assist you today?`;
+  };
+  
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'leo', text: "Hi! I'm Leo! How is your tummy feeling?", timestamp: new Date() }
+    { role: 'leo', text: getInitialMessage(), timestamp: new Date() }
   ]);
+  
+  // Reset messages when mode changes
+  useEffect(() => {
+    setMessages([
+      { role: 'leo', text: getInitialMessage(), timestamp: new Date() }
+    ]);
+  }, [isKidMode, childName]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTranscriptRef = useRef<string>('');
+  
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognitionAPI();
+      recognitionRef.current.continuous = true;  // Keep listening
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'en-US';
+      
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+        let transcript = '';
+        let isFinal = false;
+        
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            isFinal = true;
+          }
+        }
+        
+        setInput(transcript);
+        lastTranscriptRef.current = transcript;
+        
+        // Reset silence timeout on each result
+        if (silenceTimeoutRef.current) {
+          clearTimeout(silenceTimeoutRef.current);
+        }
+        
+        // If we got a final result, wait 1.5 seconds of silence before stopping
+        if (isFinal) {
+          silenceTimeoutRef.current = setTimeout(() => {
+            if (recognitionRef.current && lastTranscriptRef.current) {
+              recognitionRef.current.stop();
+            }
+          }, 1500); // 1.5 second delay after speech ends
+        }
+      };
+      
+      recognitionRef.current.onend = () => {
+        setIsRecording(false);
+        if (silenceTimeoutRef.current) {
+          clearTimeout(silenceTimeoutRef.current);
+        }
+      };
+      
+      recognitionRef.current.onerror = () => {
+        setIsRecording(false);
+        if (silenceTimeoutRef.current) {
+          clearTimeout(silenceTimeoutRef.current);
+        }
+      };
+    }
+    
+    return () => {
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+      }
+    };
+  }, []);
+  
+  const toggleRecording = () => {
+    if (!recognitionRef.current) {
+      alert('Speech recognition not supported in this browser. Try Chrome!');
+      return;
+    }
+    
+    if (isRecording) {
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+      }
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    } else {
+      setInput('');
+      lastTranscriptRef.current = '';
+      recognitionRef.current.start();
+      setIsRecording(true);
+    }
+  };
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -91,11 +194,14 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: "demo_child",
+          user_id: childId || "demo_child",
+          child_id: childId || "demo_child",
+          child_name: childName || "friend",
           message: userMsg,
-          age: 7,
-          condition: "diabetes",
-          current_mood: currentMood?.label || null
+          age: childAge,
+          condition: childCondition,
+          current_mood: currentMood?.label || null,
+          is_kid_mode: isKidMode
         })
       });
 
@@ -159,9 +265,17 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
           placeholder="Talk to Leo..."
-          disabled={isTyping}
+          disabled={isTyping || isRecording}
         />
-        <button onClick={sendMessage} disabled={isTyping}>
+        <button 
+          className={`mic-button ${isRecording ? 'recording' : ''}`}
+          onClick={toggleRecording}
+          disabled={isTyping}
+          title={isRecording ? 'Stop recording' : 'Push to talk'}
+        >
+          {isRecording ? '🔴' : '🎤'}
+        </button>
+        <button onClick={sendMessage} disabled={isTyping || !input.trim()}>
           {isTyping ? '🦁' : '➤'}
         </button>
       </div>

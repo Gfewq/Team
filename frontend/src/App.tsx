@@ -1,10 +1,64 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import ChatBox from './components/ChatBox';
 import LeoAvatar from './components/LeoAvatar'; 
 import MoodTracker, { MoodEntry } from './components/MoodTracker';
 import ParentDashboard from './components/ParentDashboard';
 import ChildSelector, { Child } from './components/ChildSelector';
 import './App.css';
+
+// 🌟 Motivational Thoughts of the Day
+const THOUGHTS_OF_THE_DAY = [
+  "You are braver than you believe! 🦁",
+  "Every day is a new adventure! 🌈",
+  "You make the world brighter! ✨",
+  "Be kind to yourself today! 💕",
+  "You are doing amazing! 🌟",
+  "Small steps lead to big wins! 👣",
+  "Your smile is your superpower! 😊",
+  "Today is going to be great! 🎉",
+  "You are stronger than you know! 💪",
+  "Believe in your dreams! 🌙",
+  "You are loved just as you are! ❤️",
+  "Keep shining bright! ☀️",
+  "Every mistake helps you grow! 🌱",
+  "You are one of a kind! 🦄",
+  "Be proud of how far you've come! 🏆",
+  "Your kindness makes a difference! 🤗",
+  "Dream big, little champion! 🚀",
+  "You've got this! 💫",
+  "Today you will learn something new! 📚",
+  "Your courage inspires others! 🌺",
+  "Happiness starts with a smile! 😄",
+  "You are a wonderful friend! 🤝",
+  "Keep being awesome! 🎨",
+  "Your heart is full of gold! 💛",
+  "Adventure awaits you today! 🗺️",
+  "You make people happy! 🎈",
+  "Be yourself, you're amazing! 🌻",
+  "Good things are coming your way! 🍀",
+  "You are a superhero! 🦸",
+  "Keep trying, never give up! 🎯",
+  "Your imagination is magical! ✨",
+  "Spread joy wherever you go! 🌸",
+  "You are important and special! 👑",
+  "Today is full of possibilities! 🌅",
+  "Be curious and explore! 🔍",
+  "Your laugh is contagious! 😂",
+  "You are capable of great things! 🏅",
+  "Make today unforgettable! 📸",
+  "You bring sunshine to others! 🌞",
+  "Keep your head high! 🦒",
+  "You are a star! ⭐",
+  "Take care of your body, it's amazing! 🏃",
+  "Friends are treasures! 💎",
+  "Learning is your superpower! 🧠",
+  "You are creative and smart! 🎭",
+  "Enjoy the little moments! 🦋",
+  "You make a difference! 🌍",
+  "Stay positive and strong! 💪",
+  "Your future is bright! 🔆",
+  "Today, be your best self! 🌟"
+];
 
 // 📊 Define the shape of our data (Matches Python Backend)
 interface UserStats {
@@ -124,6 +178,61 @@ function App() {
 
   // 9. STATE: Kid Mode (simplified UI) vs Parent mode toggle (for quick access)
   const [isKidMode, setIsKidMode] = useState(true);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [securityAnswer, setSecurityAnswer] = useState('');
+  
+  const PARENT_PASSWORD = "1234"; // Demo password
+  const SECURITY_QUESTION = "What is Leo's favorite animal?";
+  const SECURITY_ANSWER = "lion"; // Case insensitive
+  
+  const handleModeToggle = () => {
+    if (isKidMode) {
+      // Switching to parent mode - require password
+      setShowPasswordModal(true);
+      setPasswordInput('');
+      setPasswordError('');
+    } else {
+      // Switching back to kid mode - no password needed
+      setIsKidMode(true);
+    }
+  };
+  
+  const handlePasswordSubmit = () => {
+    if (passwordInput === PARENT_PASSWORD) {
+      setIsKidMode(false);
+      setShowPasswordModal(false);
+      setPasswordInput('');
+      setPasswordError('');
+      setShowForgotPassword(false);
+    } else {
+      setPasswordError('Incorrect password');
+      setPasswordInput('');
+    }
+  };
+  
+  const handleSecurityAnswer = () => {
+    if (securityAnswer.toLowerCase().trim() === SECURITY_ANSWER) {
+      // Correct answer - show password and go back
+      setPasswordError('');
+      setShowForgotPassword(false);
+      setSecurityAnswer('');
+      alert(`Your password is: ${PARENT_PASSWORD}`);
+    } else {
+      setPasswordError('Incorrect answer. Try again!');
+      setSecurityAnswer('');
+    }
+  };
+  
+  const handleClosePasswordModal = () => {
+    setShowPasswordModal(false);
+    setShowForgotPassword(false);
+    setPasswordInput('');
+    setSecurityAnswer('');
+    setPasswordError('');
+  };
 
   // 10. STATE: Medications (persisted)
   const [medications, setMedications] = useState<{type: string; time: string; taken: boolean}[]>([]);
@@ -550,6 +659,7 @@ function App() {
         <ChildSelector 
           onChildSelect={handleChildSelect}
           selectedChild={selectedChild}
+          isKidMode={isKidMode}
         />
 
         {/* Kid-friendly stats */}
@@ -563,16 +673,17 @@ function App() {
           <span className="stat-value">{stats.xp} XP</span>
         </div>
 
-        {/* Mood status - shows user's selected mood */}
-        <div className={`stat-pill status-pill ${currentMood ? 'status-mood' : getStatusClass()}`}>
+        {/* Mood status - always visible, updates when mood is selected */}
+        <div className={`stat-pill status-pill ${currentMood ? 'status-mood' : safetyStatus === 'DANGER' ? 'status-danger' : safetyStatus === 'MONITOR' ? 'status-warn' : 'status-good'}`}>
           <span className="stat-icon">
             {currentMood?.mood || (safetyStatus === 'DANGER' ? '😟' : safetyStatus === 'MONITOR' ? '🤔' : '😊')}
           </span>
           <span className="stat-value">
-            {currentMood?.label || (isKidMode ? (
+            {currentMood?.label || (
               safetyStatus === 'DANGER' ? "Let's check!" : 
-              safetyStatus === 'MONITOR' ? 'Doing okay' : 'Feeling great!'
-            ) : getDisplayStatus())}
+              safetyStatus === 'MONITOR' ? 'Doing okay' : 
+              'How are you?'
+            )}
           </span>
         </div>
 
@@ -590,19 +701,22 @@ function App() {
           </div>
         )}
 
-        {/* Mode Toggle */}
+        {/* Mode Toggle - switches between kid and parent mode */}
         <button 
-          className={`mode-toggle ${isKidMode ? 'kid' : 'detail'}`}
-          onClick={() => setIsKidMode(!isKidMode)}
-          title={isKidMode ? 'Show more details' : 'Simplify view'}
+          className={`mode-toggle-btn ${isKidMode ? 'kid' : 'parent'}`}
+          onClick={handleModeToggle}
+          title={isKidMode ? 'Switch to Parent Mode' : 'Switch to Kid Mode'}
         >
-          {isKidMode ? '📊' : '🎮'}
+          {isKidMode ? '🔒' : '🧒'}
+          <span>{isKidMode ? 'Parent Mode' : 'Kid Mode'}</span>
         </button>
-
+        
         {/* Parent Dashboard Button */}
-        <button className="parent-btn" onClick={() => setShowDashboard(true)}>
-          👨‍👩‍👧 {isKidMode ? '' : 'Parent View'}
-        </button>
+        {!isKidMode && (
+          <button className="parent-btn" onClick={() => setShowDashboard(true)}>
+            📊 Dashboard
+          </button>
+        )}
       </div>
 
       {/* --- REAL-TIME HEALTH ALERT BANNER (kid-friendly) --- */}
@@ -635,16 +749,14 @@ function App() {
         <div className="avatar-zone">
           <LeoAvatar isSpeaking={isLeoTalking} isWorried={leoWorried} />
           
-          {/* Kid-friendly health display - below avatar */}
+          {/* Thought of the Day - below avatar */}
           {isKidMode && (
-            <div className="kid-health-display">
-              <div className={`health-face ${safetyStatus.toLowerCase()}`}>
-                {safetyStatus === 'DANGER' ? '😟' : safetyStatus === 'MONITOR' ? '😐' : '😊'}
-              </div>
+            <div className="kid-health-display thought-of-day">
+              <div className="paw-icon">🐾</div>
               <span className="health-text">
-                {safetyStatus === 'DANGER' ? "Let's talk to a grown-up!" : 
-                 safetyStatus === 'MONITOR' ? "Doing okay!" : "Feeling great!"}
+                {THOUGHTS_OF_THE_DAY[Math.floor(new Date().getTime() / (1000 * 60 * 60 * 24)) % THOUGHTS_OF_THE_DAY.length]}
               </span>
+              <div className="paw-icon">🐾</div>
             </div>
           )}
           
@@ -684,11 +796,13 @@ function App() {
         
         {/* RIGHT: Chat & Mood */}
         <div className="chat-zone">
-          {/* 😊 Mood Tracker */}
-          <MoodTracker 
-            onMoodSelect={handleMoodSelect} 
-            currentMood={currentMood}
-          />
+          {/* 😊 Mood Tracker - only show in kid mode */}
+          {isKidMode && (
+            <MoodTracker 
+              onMoodSelect={handleMoodSelect} 
+              currentMood={currentMood}
+            />
+          )}
           {/* 🗣️ ChatBox tells App when it starts/stops typing */}
           <ChatBox 
             onSpeakingStateChange={setIsLeoTalking}
@@ -696,6 +810,11 @@ function App() {
             currentMood={currentMood}
             onHelpDetected={handleHelpDetected}
             sosTrigger={sosTrigger}
+            isKidMode={isKidMode}
+            childName={selectedChild?.name}
+            childId={selectedChild?.id}
+            childCondition={selectedChild?.condition}
+            childAge={selectedChild?.age}
           />
         </div>
 
@@ -739,6 +858,73 @@ function App() {
                 🚨 Emergency: 911
               </a>
               <p className="help-note">A grown-up can help you!</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Password Modal for Parent Mode */}
+      {showPasswordModal && (
+        <div className="password-modal-overlay" onClick={handleClosePasswordModal}>
+          <div className="password-modal" onClick={e => e.stopPropagation()}>
+            <div className="password-header">
+              <span>{showForgotPassword ? '🤔' : '🔐'}</span>
+              <h3>{showForgotPassword ? 'Forgot Password' : 'Parent Access'}</h3>
+              <button className="password-close" onClick={handleClosePasswordModal}>×</button>
+            </div>
+            <div className="password-content">
+              {!showForgotPassword ? (
+                <>
+                  <p>Enter password to access Parent Mode</p>
+                  <input
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                    placeholder="Enter password..."
+                    autoFocus
+                  />
+                  {passwordError && <div className="password-error">{passwordError}</div>}
+                  <button className="password-submit" onClick={handlePasswordSubmit}>
+                    Unlock 🔓
+                  </button>
+                  <button 
+                    className="forgot-password-link"
+                    onClick={() => {
+                      setShowForgotPassword(true);
+                      setPasswordError('');
+                    }}
+                  >
+                    Forgot Password?
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="security-question">🦁 {SECURITY_QUESTION}</p>
+                  <input
+                    type="text"
+                    value={securityAnswer}
+                    onChange={(e) => setSecurityAnswer(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSecurityAnswer()}
+                    placeholder="Your answer..."
+                    autoFocus
+                  />
+                  {passwordError && <div className="password-error">{passwordError}</div>}
+                  <button className="password-submit" onClick={handleSecurityAnswer}>
+                    Verify Answer ✓
+                  </button>
+                  <button 
+                    className="forgot-password-link"
+                    onClick={() => {
+                      setShowForgotPassword(false);
+                      setPasswordError('');
+                      setSecurityAnswer('');
+                    }}
+                  >
+                    ← Back to Login
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

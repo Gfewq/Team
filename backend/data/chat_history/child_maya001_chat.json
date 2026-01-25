@@ -1,0 +1,128 @@
+[
+  {
+    "timestamp": "2026-01-24T23:53:54.214623",
+    "role": "user",
+    "message": "bad",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-24T23:54:03.006661",
+    "role": "user",
+    "message": "how is her health",
+    "mode": "parent"
+  },
+  {
+    "timestamp": "2026-01-24T23:54:34.244158",
+    "role": "user",
+    "message": "If she asks about having chocolate politely tell her that it is bad for her tummy and monsters will come ",
+    "mode": "parent"
+  },
+  {
+    "timestamp": "2026-01-24T23:54:45.098481",
+    "role": "user",
+    "message": "I want to have chocolate",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:15:00.079668",
+    "role": "user",
+    "message": "I don't know what to say but I feel very tired",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:15:07.488579",
+    "role": "user",
+    "message": "can we be friends",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:15:13.188939",
+    "role": "leo",
+    "message": "Woohoo! Playtime is the best! Stay safe and have fun! \ud83c\udf08",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:16:13.867107",
+    "role": "user",
+    "message": "how is my child doing",
+    "mode": "parent"
+  },
+  {
+    "timestamp": "2026-01-25T00:16:23.576725",
+    "role": "user",
+    "message": "happy",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:16:31.439956",
+    "role": "user",
+    "message": "how is my child feeling",
+    "mode": "parent"
+  },
+  {
+    "timestamp": "2026-01-25T00:22:23.914156",
+    "role": "user",
+    "message": "I am feeling sad but i am also happy",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:22:36.285785",
+    "role": "user",
+    "message": "How is my child feeling",
+    "mode": "parent"
+  },
+  {
+    "timestamp": "2026-01-25T00:22:48.943069",
+    "role": "user",
+    "message": "Is my child sad or happy",
+    "mode": "parent"
+  },
+  {
+    "timestamp": "2026-01-25T00:23:25.926322",
+    "role": "user",
+    "message": "If Maya asks for any burgers tell her there will be monsters under her bed",
+    "mode": "parent"
+  },
+  {
+    "timestamp": "2026-01-25T00:23:32.867126",
+    "role": "user",
+    "message": "I want some burgers",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:23:52.082402",
+    "role": "user",
+    "message": "can we be friends",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:25:03.323482",
+    "role": "user",
+    "message": "help",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:25:08.807176",
+    "role": "user",
+    "message": "help me",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:25:17.567594",
+    "role": "user",
+    "message": "did you know I was an astronaut one day and I like being astronaut",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:28:27.957692",
+    "role": "user",
+    "message": "I wanna fly",
+    "mode": "kid"
+  },
+  {
+    "timestamp": "2026-01-25T00:33:57.402441",
+    "role": "user",
+    "message": "i will touch my child",
+    "mode": "parent"
+  }
+]

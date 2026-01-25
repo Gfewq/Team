@@ -73,9 +73,7 @@
 - Gemma 3 (Kid-Friendly Responses)
 - Local RAG (Medical Safety)
 
-```
 
-```
 
 ## 🤖 AI/ML Stack
 

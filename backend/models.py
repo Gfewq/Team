@@ -1,21 +1,22 @@
 from pydantic import BaseModel
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any
 
 class UserMessage(BaseModel):
     user_id: str
     message: str
     age: int = 7
     condition: Literal["diabetes", "asthma"] = "diabetes"
-    context: Optional[str] = "home"
-
-class LeoResponse(BaseModel):
-    reply: str
-    mood: str
-    animation_id: str
-    safety_flag: bool
 
 class HealthLog(BaseModel):
-    user_id: str
-    metric_type: str
+    # This now matches your data_simulator.py output structure
+    timestamp: str
+    event_type: str
     value: float
     unit: str
+    urgency: str
+    metadata: Dict[str, Any]
+    safety_status: Optional[str] = None
+    health_score: Optional[float] = None
+    # We add a catch-all for extra fields so it doesn't crash
+    class Config:
+        extra = "ignore"

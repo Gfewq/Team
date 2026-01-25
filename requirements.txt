@@ -1,5 +1,7 @@
-streamlit
-requests
-sentence-transformers
+fastapi
+uvicorn
+pydantic
+python-dotenv
+httpx
 numpy
-aiohttp>=3.9.0
+scikit-learn

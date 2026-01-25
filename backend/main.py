@@ -49,33 +49,36 @@ async def chat_stream(user_msg: UserMessage):
 
 @app.post("/api/log/health")
 def log_health(log: HealthLog):
-    """
-    Gamification Endpoint:
-    Logs health data and rewards XP.
-    """
     global user_stats
     
-    # Gamification Logic
-    xp_gain = 10
-    if 4.0 <= log.value <= 10.0: # Normal Range (Metric dependent)
-        xp_gain = 25
-        user_stats["status"] = "Super Strong"
-    else:
-        user_stats["status"] = "Recovering"
-
-    user_stats["xp"] += xp_gain
+    # 1. Update Game Stats based on Health Score
+    if log.health_score:
+        user_stats["xp"] += int(log.health_score / 10) # 100 health = 10 XP
     
-    # Level Up Logic
+    # 2. Update Status Text based on Event Type
+    if log.safety_status == "DANGER":
+        user_stats["status"] = "Needs Help! 🚨"
+    elif log.safety_status == "MONITOR":
+        user_stats["status"] = "Check Engine ⚠️"
+    else:
+        user_stats["status"] = "Super Strong 🦁"
+
+    # 3. Dynamic Avatar State (For the UI to react)
+    # We send this back so the frontend knows if Leo should look sad/happy
+    avatar_mood = "happy"
+    if log.event_type == "glucose_drop" or log.safety_status == "DANGER":
+        avatar_mood = "worried"
+    
+    # Check for level up
     if user_stats["xp"] >= user_stats["level"] * 100:
         user_stats["level"] += 1
         user_stats["xp"] = 0
-        return {
-            "event": "LEVEL_UP", 
-            "new_level": user_stats["level"], 
-            "message": "🦁 ROAR! Level Up! You unlocked a new sticker!"
-        }
-        
-    return {"event": "LOGGED", "xp_gained": xp_gain, "current_stats": user_stats}
+    
+    return {
+        "event": "LOGGED", 
+        "xp_gained": int(log.health_score / 10) if log.health_score else 5,
+        "avatar_mood": avatar_mood
+    }
 
 if __name__ == "__main__":
     import uvicorn

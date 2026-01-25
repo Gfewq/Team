@@ -69,10 +69,10 @@
 │  │Health Sim    │  │Chat Memory   │  │Child Profiles    │   │
 │  │(Real-time)   │  │(Per-child)   │  │(JSON Storage)    │   │
 │  └──────┬───────┘  └──────┬───────┘  └────────┬─────────┘   │
-│         │                 │                    │             │
-│         ▼                 ▼                    ▼             │
+│         │                 │                    │            │
+│         ▼                 ▼                    ▼            │
 │  ┌─────────────────────────────────────────────────────────┐│
-│  │                   🧠 BRAIN SERVICE                      ││
+│  │                   🧠 BRAIN SERVICE                     ││
 │  │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  ││
 │  │  │  DeepSeek   │    │   Gemma 3   │    │  Local RAG  │  ││
 │  │  │  (Analysis) │    │ (Responses) │    │  (Safety)   │  ││
@@ -239,12 +239,30 @@ Team/
 - Multi-model architecture for safety and engagement
 - Per-child memory and parent instruction following
 
-### Impact Potential
-- Reduces anxiety around chronic conditions
+## 🌍 Impact & Use Cases
+
+### Real-World Impact
+- Reduces anxiety for children managing chronic conditions
 - Improves medication adherence through gamification
-- Empowers parents with insights and control
+- Gives parents peace of mind with real-time insights
+
+### Use Cases
+- Daily diabetes management for children
+- Asthma monitoring and trigger awareness
+- Emotional support during school, play, and sleep
+- Multi-child health tracking for families
+- Safe, guided health conversations without medical jargon
 
 ---
+
+## 🛣️ Future Roadmap
+
+- 🔔 SMS and push notifications for parents
+- 📱 Native mobile apps (iOS / Android)
+- 🏥 Integration with real CGMs and wearables
+- 🧑‍⚕️ Clinician dashboards for healthcare providers
+- 🌍 Multi-language and accessibility support
+- ☁️ Secure cloud deployment with encrypted storage
 
 ## 👥 Team
 

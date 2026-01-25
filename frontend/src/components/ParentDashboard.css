@@ -1,0 +1,1037 @@
+.dashboard-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dashboard-container {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+  border-radius: 24px;
+  width: 100%;
+  max-width: 1100px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 32px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 24px 24px 0 0;
+}
+
+.dashboard-header h1 {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.8rem;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.safety-status-badge {
+  padding: 8px 16px;
+  border-radius: 20px;
+  color: white;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.export-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.export-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+/* Tab Navigation */
+.tab-navigation {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tab-btn {
+  padding: 12px 24px;
+  border: none;
+  background: #f0f0f0;
+  border-radius: 12px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #636e72;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+  background: #e0e0e0;
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* Wellness Banner */
+.wellness-banner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 24px;
+  background: white;
+  margin: 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.wellness-score-container {
+  flex-shrink: 0;
+}
+
+.wellness-score-ring {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.wellness-score-inner {
+  width: 80px;
+  height: 80px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.wellness-score-value {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2d3436;
+  line-height: 1;
+}
+
+.wellness-score-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.7rem;
+  color: #636e72;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.wellness-info {
+  flex: 1;
+}
+
+.wellness-info h3 {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.3rem;
+  margin: 0 0 4px 0;
+  color: #2d3436;
+}
+
+.wellness-info p {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #636e72;
+  margin: 0 0 12px 0;
+}
+
+.wellness-factors {
+  display: flex;
+  gap: 16px;
+}
+
+.factor {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  color: #2d3436;
+  background: #f8f9fa;
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  padding: 24px;
+}
+
+.dashboard-card {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+.dashboard-card h2 {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.3rem;
+  color: #2d3436;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-card h3 {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  color: #636e72;
+  margin: 16px 0 12px 0;
+}
+
+/* Alerts Card */
+.alerts-card {
+  border-left: 4px solid #ff7675;
+}
+
+.no-alerts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  color: #00b894;
+}
+
+.check-icon {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+}
+
+.no-alerts p {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  margin: 0;
+}
+
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.alert-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: #fff5f5;
+  border-radius: 12px;
+  border: 1px solid #ffcccc;
+  align-items: center;
+}
+
+.alert-item.reviewed {
+  background: #f8f9fa;
+  border-color: #e0e0e0;
+  opacity: 0.7;
+}
+
+.alert-icon {
+  font-size: 1.2rem;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-text {
+  margin: 0 0 4px 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #2d3436;
+}
+
+.alert-time {
+  font-size: 0.75rem;
+  color: #b2bec3;
+}
+
+.review-btn {
+  padding: 6px 12px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.review-btn:hover {
+  background: #764ba2;
+}
+
+/* Mood Chart Card */
+.mood-card {
+  border-left: 4px solid #00b894;
+}
+
+.mood-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chart-bars {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 16px;
+  height: 150px;
+  padding: 0 20px;
+  width: 100%;
+}
+
+.chart-bar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  max-width: 60px;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.chart-bar {
+  width: 100%;
+  min-height: 20px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 4px;
+  transition: height 0.5s ease;
+}
+
+.bar-count {
+  color: white;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.bar-label {
+  font-size: 1.5rem;
+  margin-top: 8px;
+}
+
+.chart-summary {
+  margin-top: 16px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #636e72;
+}
+
+/* Recommendations Card */
+.recommendations-card {
+  border-left: 4px solid #fdcb6e;
+}
+
+.recommendations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recommendation-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  align-items: center;
+}
+
+.recommendation-item.priority-high {
+  background: #fff5f5;
+  border: 1px solid #ffcccc;
+}
+
+.recommendation-item.priority-medium {
+  background: #fffbf0;
+  border: 1px solid #ffe0a0;
+}
+
+.recommendation-item.priority-low {
+  background: #f0fff4;
+  border: 1px solid #b8f0c0;
+}
+
+.rec-icon {
+  font-size: 1.5rem;
+}
+
+.rec-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #2d3436;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.thumbs-up {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+}
+
+/* Quick Actions Card */
+.actions-card {
+  border-left: 4px solid #74b9ff;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.action-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.action-btn:hover .action-icon {
+  transform: scale(1.1);
+}
+
+.action-icon {
+  font-size: 1.8rem;
+  transition: transform 0.3s ease;
+}
+
+.action-btn span:last-child {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Health Metrics Card */
+.health-metrics-card {
+  border-left: 4px solid #ff7675;
+  grid-column: span 2;
+}
+
+.health-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.sub-text {
+  font-size: 0.8rem;
+  color: #b2bec3;
+  display: block;
+  margin-top: 8px;
+}
+
+.metric-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+}
+
+.metric-card h4 {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #636e72;
+  margin: 0 0 8px 0;
+  text-transform: capitalize;
+}
+
+.metric-value {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 2rem;
+  color: #667eea;
+}
+
+.metric-value .unit {
+  font-size: 0.9rem;
+  color: #b2bec3;
+}
+
+.metric-avg {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  color: #636e72;
+  margin-top: 4px;
+}
+
+.metric-count {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  color: #b2bec3;
+  margin-top: 2px;
+}
+
+/* Chat Summary Card */
+.chat-card {
+  border-left: 4px solid #74b9ff;
+  grid-column: span 2;
+}
+
+.chat-summary {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.summary-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 16px;
+  flex: 1;
+}
+
+.stat-number {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.stat-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  color: #636e72;
+}
+
+.chat-history {
+  background: #f8f9fa;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.history-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: white;
+}
+
+.history-item.leo {
+  background: #fff8e1;
+}
+
+.history-item.user {
+  background: #e3f2fd;
+}
+
+.history-role {
+  font-size: 1.2rem;
+}
+
+.history-text {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #2d3436;
+  line-height: 1.4;
+}
+
+/* Timeline Card */
+.timeline-card {
+  border-left: 4px solid #a29bfe;
+}
+
+.timeline {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 8px 0;
+}
+
+.timeline-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 16px;
+  min-width: 100px;
+}
+
+.timeline-mood {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.timeline-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.timeline-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2d3436;
+}
+
+.timeline-date {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  color: #b2bec3;
+}
+
+/* Topics Card */
+.topics-card {
+  border-left: 4px solid #00b894;
+}
+
+.topics-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.topic-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topic-label {
+  width: 140px;
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #2d3436;
+}
+
+.topic-count {
+  color: #b2bec3;
+  font-size: 0.8rem;
+}
+
+.topic-bar-container {
+  flex: 1;
+  height: 24px;
+  background: #f0f0f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.topic-bar {
+  height: 100%;
+  border-radius: 12px;
+  transition: width 0.5s ease;
+}
+
+.topic-percentage {
+  width: 40px;
+  text-align: right;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 0.9rem;
+  color: #636e72;
+}
+
+/* Engagement Card */
+.engagement-card {
+  border-left: 4px solid #fdcb6e;
+}
+
+.engagement-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.engagement-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 16px;
+}
+
+.engagement-icon {
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+}
+
+.engagement-value {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.engagement-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  color: #636e72;
+  text-align: center;
+}
+
+.activity-section h3 {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  color: #2d3436;
+  margin: 0 0 12px 0;
+}
+
+.activity-heatmap {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.heatmap-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.heatmap-box {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.heatmap-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.7rem;
+  color: #636e72;
+}
+
+/* Summary Card */
+.summary-card {
+  border-left: 4px solid #a29bfe;
+  grid-column: span 2;
+}
+
+.summary-content {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+}
+
+.summary-icon {
+  font-size: 1.5rem;
+}
+
+.summary-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  color: #2d3436;
+}
+
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: #b2bec3;
+  font-family: 'Nunito', sans-serif;
+}
+
+/* Vitals Card */
+.vitals-card {
+  border-left: 4px solid #00b894;
+  grid-column: span 2;
+}
+
+.vitals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.vital-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 16px;
+}
+
+.vital-icon {
+  font-size: 2rem;
+}
+
+.vital-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.vital-label {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  color: #636e72;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vital-value {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+/* Events Card */
+.events-card {
+  border-left: 4px solid #667eea;
+  grid-column: span 2;
+}
+
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.event-item {
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border-left: 4px solid #00b894;
+}
+
+.event-item.danger {
+  border-left-color: #ff7675;
+  background: #fff5f5;
+}
+
+.event-item.monitor {
+  border-left-color: #fdcb6e;
+  background: #fffbf0;
+}
+
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.event-type {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3436;
+}
+
+.event-status {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.event-details {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.event-value,
+.event-trend,
+.event-score {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: #636e72;
+}
+
+.event-reasoning {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.85rem;
+  color: #2d3436;
+  font-style: italic;
+  margin: 8px 0;
+  padding: 8px;
+  background: white;
+  border-radius: 8px;
+}
+
+.event-time {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  color: #b2bec3;
+}
+
+/* Alert Item Critical */
+.alert-item.critical {
+  background: #ffebee;
+  border: 2px solid #ff7675;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .chat-card,
+  .timeline-card,
+  .health-metrics-card,
+  .summary-card {
+    grid-column: span 1;
+  }
+  
+  .chat-summary {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .dashboard-header h1 {
+    font-size: 1.4rem;
+  }
+
+  .wellness-banner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .wellness-factors {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .tab-navigation {
+    overflow-x: auto;
+    padding: 12px 16px;
+  }
+
+  .tab-btn {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  .engagement-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .summary-content {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-actions {
+    grid-template-columns: 1fr;
+  }
+}

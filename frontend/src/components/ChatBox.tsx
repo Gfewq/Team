@@ -1,13 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
 import './ChatBox.css';
+import { MoodEntry } from './MoodTracker';
+
+interface Message {
+  role: string;
+  text: string;
+  timestamp?: Date;
+}
 
 interface ChatBoxProps {
   onSpeakingStateChange: (isSpeaking: boolean) => void;
+  onChatUpdate?: (messages: Message[]) => void;
+  currentMood?: MoodEntry | null;
 }
 
-export default function ChatBox({ onSpeakingStateChange }: ChatBoxProps) {
-  const [messages, setMessages] = useState<{role: string, text: string}[]>([
-    { role: 'leo', text: "Hi! I'm Leo! How is your tummy feeling?" }
+export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMood }: ChatBoxProps) {
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'leo', text: "Hi! I'm Leo! How is your tummy feeling?", timestamp: new Date() }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -22,11 +31,39 @@ export default function ChatBox({ onSpeakingStateChange }: ChatBoxProps) {
     onSpeakingStateChange(isTyping);
   }, [isTyping, onSpeakingStateChange]);
 
+  // Notify parent when messages change
+  useEffect(() => {
+    if (onChatUpdate) {
+      onChatUpdate(messages);
+    }
+  }, [messages, onChatUpdate]);
+
+  // React to mood changes - Leo acknowledges the mood
+  useEffect(() => {
+    if (currentMood) {
+      const moodResponses: Record<string, string> = {
+        '😊': "I'm so happy you're feeling good today! 🌟",
+        '😐': "It's okay to feel just okay. I'm here if you want to talk!",
+        '😢': "I'm sorry you're feeling sad. Would a hug help? 🤗",
+        '😫': "Being tired is tough! Make sure to rest and drink water! 💧",
+        '🤒': "Oh no, you're not feeling well! Should we tell a grown-up? 🏥",
+      };
+      
+      const response = moodResponses[currentMood.mood] || "Thanks for telling me how you feel!";
+      setMessages(prev => [...prev, { 
+        role: 'leo', 
+        text: response,
+        timestamp: new Date()
+      }]);
+    }
+  }, [currentMood]);
+
   const sendMessage = async () => {
     if (!input.trim()) return;
 
     const userMsg = input;
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    const timestamp = new Date();
+    setMessages(prev => [...prev, { role: 'user', text: userMsg, timestamp }]);
     setInput('');
     setIsTyping(true); // <--- Triggers Lion Mouth Open
 
@@ -38,7 +75,8 @@ export default function ChatBox({ onSpeakingStateChange }: ChatBoxProps) {
           user_id: "demo_child",
           message: userMsg,
           age: 7,
-          condition: "diabetes" 
+          condition: "diabetes",
+          current_mood: currentMood?.label || null
         })
       });
 
@@ -48,7 +86,7 @@ export default function ChatBox({ onSpeakingStateChange }: ChatBoxProps) {
       const decoder = new TextDecoder();
       let leoReply = "";
 
-      setMessages(prev => [...prev, { role: 'leo', text: "..." }]);
+      setMessages(prev => [...prev, { role: 'leo', text: "...", timestamp: new Date() }]);
 
       while (true) {
         const { done, value } = await reader.read();

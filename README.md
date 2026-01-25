@@ -125,10 +125,9 @@ cd Team
 
 ### 2. Set Up Environment Variables
 ```bash
-# Create .env file in root directory
-cp .env.example .env
+Create a `.env` file in the root directory (same level as `requirements.txt`)
+and populate it with the following variables:
 
-# Add your API keys
 TELUS_API_BASE="https://3ca9s.paas.ai.telus.com"
 QWEN_API_KEY="your_qwen_key"
 GEMMA_API_KEY="your_gemma_key"
@@ -143,7 +142,7 @@ python install -r requirements.txt
 # Run the FastAPI server
 python -m uvicorn backend.main:app --reload
 
-# Run the mock data
+# Run the mock data in another terminal
 python -m backend.sensor_stream
 ```
 

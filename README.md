@@ -254,7 +254,12 @@ Team/
 ## 👥 Team
 
 Built with ❤️ for TELUS Hackathon 2026
-
+| Name                 |GitHub         |
+|----------------------|---------------|
+| Omar Abbasi          | Gfewq         |
+| Ujjawal Singh        | ujjawalsuii   |
+| Ishan Raj            | isr808        |
+| Natasha Krishnakanth | natashakk0602 |
 ---
 
 ## 📄 License

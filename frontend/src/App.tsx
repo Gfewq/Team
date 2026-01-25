@@ -96,6 +96,11 @@ function App() {
   
   // 4. STATE: Parent Dashboard visibility
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [parentPhone, setParentPhone] = useState(() => {
+    // Load from localStorage
+    return localStorage.getItem('parentPhone') || '';
+  }); 
 
   // 5. STATE: Health Logs
   const [healthLogs, setHealthLogs] = useState<HealthLog[]>([]);
@@ -342,11 +347,109 @@ function App() {
   const getDisplayStatus = () => {
     if (safetyStatus === 'DANGER') return '⚠️ Alert';
     if (safetyStatus === 'MONITOR') return '👀 Monitor';
-    return stats.status || 'Loading...';
+    return stats.status || 'Loading...';}
+  // 3. LOGIC: Determine Status Color
+  // If status contains "Help", "Check", or "Critical", turn red
+  const statusLower = stats.status.toLowerCase();
+  const isDanger = statusLower.includes('help') || 
+                   statusLower.includes('check') || 
+                   statusLower.includes('critical');
+  const statusClass = isDanger ? 'status-warn' : 'status-good';
+  const bgClass = isDanger ? 'bg-critical' : 'bg-fine';
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Status:', stats.status, '| isDanger:', isDanger, '| bgClass:', bgClass);
+  }, [stats.status, isDanger, bgClass]);
+
+  // Update body class for background gradient
+  useEffect(() => {
+    document.body.className = bgClass;
+    return () => {
+      document.body.className = '';
+    };
+  }, [bgClass]);
+
+  // Save phone number to localStorage and backend
+  const handleSavePhone = async () => {
+    localStorage.setItem('parentPhone', parentPhone);
+    
+    // Also save to backend for automatic notifications
+    try {
+      await fetch('http://localhost:8000/api/settings/parent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: parentPhone })
+      });
+    } catch (e) {
+      console.log('Backend save failed, but saved locally');
+    }
+    
+    setShowSettings(false);
+    alert('Phone number saved! Parent will be automatically notified in emergencies.');
   };
 
   return (
     <div className="app-wrapper">
+      {/* Settings Button - Top Right */}
+      <button 
+        className="settings-button"
+        onClick={() => setShowSettings(true)}
+        title="Settings"
+      >
+        ⚙️
+      </button>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="settings-overlay" onClick={() => setShowSettings(false)}>
+          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Parent Settings</h2>
+            <label>
+              Parent Phone Number:
+              <input
+                type="tel"
+                value={parentPhone}
+                onChange={(e) => setParentPhone(e.target.value)}
+                placeholder="+1234567890"
+                className="phone-input"
+              />
+            </label>
+            <div className="settings-buttons">
+              <button onClick={handleSavePhone} className="save-button">Save</button>
+              <button onClick={() => setShowSettings(false)} className="cancel-button">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Contact - Only show when critical */}
+      {isDanger && parentPhone && (
+        <div className="emergency-buttons">
+          <div className="emergency-info">
+            <p className="emergency-label">Emergency Contact:</p>
+            <p className="emergency-phone">{parentPhone}</p>
+          </div>
+          <div className="emergency-actions">
+            <a href={`tel:${parentPhone}`} className="emergency-btn call-btn">
+              📞 Call Parent
+            </a>
+            <a href={`sms:${parentPhone}`} className="emergency-btn sms-btn">
+              💬 SMS Parent
+            </a>
+            <button 
+              className="emergency-btn copy-btn"
+              onClick={() => {
+                navigator.clipboard.writeText(parentPhone);
+                alert('Phone number copied to clipboard!');
+              }}
+            >
+              📋 Copy Number
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* --- HUD BAR (Top) --- */}
       <div className="status-hud">
         <div className="stat-pill">⭐ Level {stats.level}</div>

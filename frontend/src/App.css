@@ -3,10 +3,20 @@
 body {
   margin: 0;
   font-family: 'Nunito', sans-serif;
-  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); /* Cotton Candy Gradient */
   color: #2d3436;
   height: 100vh;
   overflow: hidden;
+  transition: background 0.5s ease;
+}
+
+/* Blue gradient for fine/healthy status */
+body.bg-fine {
+  background: linear-gradient(135deg, #a8d8ea 0%, #d6eaf8 50%, #ebf5fb 100%);
+}
+
+/* Red gradient for critical status */
+body.bg-critical {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 50%, #ffa8a8 100%);
 }
 
 .app-wrapper {
@@ -160,6 +170,7 @@ body {
   100% { transform: scale(1); }
 }
 
+<<<<<<< Updated upstream
 /* Parent Dashboard Button */
 .parent-btn {
   font-family: 'Fredoka', sans-serif;
@@ -198,3 +209,203 @@ body {
   flex-direction: column;
   padding: 16px;
 }
+=======
+/* Settings Button */
+.settings-button {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  transition: all 0.2s ease;
+}
+
+.settings-button:hover {
+  transform: scale(1.1);
+  background: rgba(255, 255, 255, 1);
+}
+
+/* Settings Modal */
+.settings-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.settings-modal {
+  background: white;
+  padding: 2rem;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90%;
+}
+
+.settings-modal h2 {
+  margin-top: 0;
+  font-family: 'Fredoka', sans-serif;
+  color: #2d3436;
+}
+
+.settings-modal label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #636e72;
+}
+
+.phone-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  box-sizing: border-box;
+}
+
+.phone-input:focus {
+  outline: none;
+  border-color: #00b894;
+}
+
+.settings-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.save-button, .cancel-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.save-button {
+  background: #00b894;
+  color: white;
+}
+
+.save-button:hover {
+  background: #00a085;
+}
+
+.cancel-button {
+  background: #ddd;
+  color: #636e72;
+}
+
+.cancel-button:hover {
+  background: #ccc;
+}
+
+/* Emergency Buttons */
+.emergency-buttons {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  padding: 20px;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  min-width: 250px;
+  animation: pulse-emergency 2s infinite;
+}
+
+.emergency-info {
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.emergency-label {
+  font-size: 0.9rem;
+  color: #636e72;
+  margin: 0 0 5px 0;
+  font-weight: 600;
+}
+
+.emergency-phone {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ff6b6b;
+  margin: 0;
+  font-family: 'Fredoka', sans-serif;
+}
+
+.emergency-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.emergency-btn {
+  padding: 12px 20px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 1rem;
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+}
+
+.call-btn {
+  background: linear-gradient(135deg, #ff6b6b, #ff5252);
+}
+
+.sms-btn {
+  background: linear-gradient(135deg, #4ecdc4, #44a08d);
+}
+
+.copy-btn {
+  background: linear-gradient(135deg, #636e72, #2d3436);
+}
+
+.emergency-btn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.emergency-btn:active {
+  transform: scale(0.98);
+}
+
+@keyframes pulse-emergency {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  }
+  50% { 
+    transform: scale(1.01);
+    box-shadow: 0 12px 45px rgba(255, 107, 107, 0.4);
+  }
+}
+>>>>>>> Stashed changes

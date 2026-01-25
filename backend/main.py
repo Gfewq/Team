@@ -3,12 +3,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from backend.models import UserMessage, HealthLog
 from backend.services.brain_service import analyze_intent, generate_leo_response
+from backend.services.notification_service import set_parent_contact, notify_parent_critical
 import asyncio
 import json
+<<<<<<< Updated upstream
 import os
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
+=======
+>>>>>>> Stashed changes
 
 app = FastAPI(title="Leo Health API", version="2.0")
 
@@ -28,6 +32,7 @@ user_stats = {
     "streak": 5,
     "status": "Healthy"
 }
+last_notified_status = None  # Track to avoid duplicate notifications
 
 # --- HEALTH DATA STORAGE ---
 health_events: List[dict] = []
@@ -92,6 +97,7 @@ def extract_metric(event: dict, keyword: str, default: float) -> float:
 def health_check():
     return {"status": "Leo is awake!", "stats": user_stats}
 
+<<<<<<< Updated upstream
 @app.get("/api/health/current")
 def get_current_health():
     """Get current health metrics from simulator"""
@@ -238,6 +244,15 @@ def get_health_alerts():
         "has_critical": any(a["severity"] == "critical" for a in alerts),
         "timestamp": datetime.now().isoformat()
     }
+=======
+def _sse_wrap(gen):
+    """Wrap raw text stream in SSE format (data: ...\\n) so frontend can parse it."""
+    async def wrapped():
+        async for chunk in gen:
+            yield f"data: {json.dumps(chunk)}\n"
+        yield "data: [DONE]\n"
+    return wrapped()
+>>>>>>> Stashed changes
 
 @app.post("/api/chat/stream")
 async def chat_stream(user_msg: UserMessage):
@@ -252,14 +267,57 @@ async def chat_stream(user_msg: UserMessage):
     intent = await analyze_intent(user_msg.message, user_msg.age)
     print(f"🧠 Brain Analysis: {intent}")
     
-    # 2. Empathy Stream
+    # 2. Empathy Stream (wrapped in SSE format for frontend)
     return StreamingResponse(
-        generate_leo_response(user_msg, intent), 
+        _sse_wrap(generate_leo_response(user_msg, intent)), 
         media_type="text/event-stream"
     )
 
+def check_metric_critical(metric_type: str, value: float) -> tuple[bool, str]:
+    """
+    Check if a metric is critical and return (is_critical, status_message)
+    """
+    metric_type_lower = metric_type.lower()
+    
+    # Glucose thresholds
+    if "glucose" in metric_type_lower:
+        if value < 4.0:
+            return True, "Help Needed - Low Glucose"
+        elif value > 10.0:
+            return True, "Check Required - High Glucose"
+        else:
+            return False, "Super Strong"
+    
+    # Blood Pressure thresholds (systolic/diastolic)
+    elif "bp" in metric_type_lower or "blood_pressure" in metric_type_lower or "pressure" in metric_type_lower:
+        # Assuming format like "120/80" or separate systolic/diastolic
+        # For simplicity, if value is systolic (higher number)
+        if value < 90:  # Low BP
+            return True, "Help Needed - Low Blood Pressure"
+        elif value > 140:  # High BP
+            return True, "Check Required - High Blood Pressure"
+        else:
+            return False, "Super Strong"
+    
+    # Heart Rate thresholds
+    elif "heart" in metric_type_lower or "pulse" in metric_type_lower or "hr" in metric_type_lower:
+        if value < 60:  # Low heart rate
+            return True, "Help Needed - Low Heart Rate"
+        elif value > 100:  # High heart rate (for children, adjust as needed)
+            return True, "Check Required - High Heart Rate"
+        else:
+            return False, "Super Strong"
+    
+    # Default: check if value is very low or very high
+    else:
+        if value < 1.0 or value > 200:  # Generic critical thresholds
+            return True, f"Check Required - {metric_type} Critical"
+        else:
+            return False, "Super Strong"
+
 @app.post("/api/log/health")
 def log_health(log: HealthLog):
+<<<<<<< Updated upstream
     global user_stats
     
 <<<<<<< Updated upstream
@@ -277,12 +335,38 @@ def log_health(log: HealthLog):
     })
     
     # Gamification Logic
+=======
+    """
+    Gamification Endpoint:
+    Logs health data and rewards XP.
+    Handles multiple metrics: glucose, BP, heart rate, etc.
+    """
+    global user_stats, last_notified_status
+    
+    # Check if this metric is critical
+    is_critical, status_msg = check_metric_critical(log.metric_type, log.value)
+    
+    print(f"📊 Received {log.metric_type}: {log.value} {log.unit}")
+    
+>>>>>>> Stashed changes
     xp_gain = 10
-    if 4.0 <= log.value <= 10.0: # Normal Range (Metric dependent)
-        xp_gain = 25
-        user_stats["status"] = "Super Strong"
+    
+    if is_critical:
+        user_stats["status"] = status_msg
+        print(f"🚨 CRITICAL: {status_msg} ({log.metric_type}: {log.value})")
+        # Automatically notify parent (only once per status change)
+        if last_notified_status != status_msg:
+            notify_parent_critical(log.value, status_msg, log.metric_type)
+            last_notified_status = status_msg
     else:
-        user_stats["status"] = "Recovering"
+        # Normal range - check if we should update status
+        if "Super Strong" in status_msg:
+            xp_gain = 25
+            # Only update to "Super Strong" if not already critical
+            if not any(word in user_stats["status"].lower() for word in ["help", "check", "critical"]):
+                user_stats["status"] = status_msg
+            print(f"✅ Normal {log.metric_type} range")
+            last_notified_status = None  # Reset notification flag when back to normal
 
     user_stats["xp"] += xp_gain
 >>>>>>> Stashed changes
@@ -319,6 +403,28 @@ def get_health_logs(limit: int = 50):
         "logs": health_logs[-limit:],
         "total": len(health_logs)
     }
+
+@app.post("/api/test/glucose")
+def test_glucose(value: float):
+    """
+    TEST ENDPOINT: Manually set glucose value for testing
+    Usage: POST /api/test/glucose?value=3.5
+    """
+    test_log = HealthLog(
+        user_id="test_user",
+        metric_type="glucose",
+        value=value,
+        unit="mmol/L"
+    )
+    return log_health(test_log)
+
+@app.post("/api/settings/parent")
+def save_parent_contact(phone: str = "", email: str = ""):
+    """
+    Save parent contact information
+    """
+    result = set_parent_contact(phone, email)
+    return {"message": "Parent contact saved", "contact": result}
 
 if __name__ == "__main__":
     import uvicorn

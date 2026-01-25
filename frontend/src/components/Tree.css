@@ -5,35 +5,35 @@
 }
 
 .tree-left {
-  left: -3%;
-  bottom: 5%;
-  width: 280px;
+  left: -5%;
+  bottom: 0;
+  width: 320px;
   height: auto;
   z-index: 2;
 }
 
 .tree-right {
-  right: -3%;
-  bottom: 5%;
-  width: 300px;
+  right: -5%;
+  bottom: 0;
+  width: 350px;
   height: auto;
   z-index: 2;
 }
 
 .tree-far-left {
-  left: -15%;
-  bottom: 3%;
-  width: 220px;
+  left: -18%;
+  bottom: 0;
+  width: 260px;
   height: auto;
   z-index: 1;
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
 .tree-far-right {
-  right: -12%;
-  bottom: 3%;
-  width: 200px;
+  right: -15%;
+  bottom: 0;
+  width: 240px;
   height: auto;
   z-index: 1;
-  opacity: 0.7;
+  opacity: 0.8;
 }

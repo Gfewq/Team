@@ -31,6 +31,7 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
     onSpeakingStateChange(isTyping);
   }, [isTyping, onSpeakingStateChange]);
 
+<<<<<<< Updated upstream
   // Notify parent when messages change
   useEffect(() => {
     if (onChatUpdate) {
@@ -57,6 +58,25 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
       }]);
     }
   }, [currentMood]);
+=======
+  // Convert markdown-style **text** to bold and *text* to italic
+  const renderMessage = (text: string) => {
+    // First handle bold (**text**), then italic (*text*)
+    const parts = text.split(/(\*\*.*?\*\*|\*[^*].*?\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        // Bold text
+        const boldText = part.slice(2, -2);
+        return <strong key={i}>{boldText}</strong>;
+      } else if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**')) {
+        // Italic text (but not bold)
+        const italicText = part.slice(1, -1);
+        return <em key={i}>{italicText}</em>;
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+>>>>>>> Stashed changes
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -128,7 +148,7 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
       <div className="messages-list">
         {messages.map((m, i) => (
           <div key={i} className={`message-bubble ${m.role}`}>
-            {m.text}
+            {renderMessage(m.text)}
           </div>
         ))}
         <div ref={messagesEndRef} />

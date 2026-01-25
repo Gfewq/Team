@@ -2,7 +2,7 @@
   <img src="https://em-content.zobj.net/source/apple/391/lion_1f981.png" width="120" alt="Leo the Lion"/>
 </p>
 
-<h1 align="center">🦁 Leo the Lion</h1>
+<h1 align="center">Leo the Lion!</h1>
 <h3 align="center">AI-Powered Health Companion for Children with Chronic Conditions</h3>
 
 <p align="center">
@@ -52,33 +52,26 @@
 
 ## 🏗️ Technical Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      FRONTEND (React + TS)                  │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐ │
-│  │Kid Mode │  │Parent   │  │Leo Chat │  │Voice Input      │ │
-│  │  (Game) │  │Dashboard│  │(Stream) │  │(Web Speech API) │ │
-│  └────┬────┘  └────┬────┘  └────┬────┘  └────────┬────────┘ │
-└───────┼────────────┼───────────┼─────────────────┼──────────┘
-        │            │           │                 │
-        ▼            ▼           ▼                 ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    BACKEND (FastAPI + Python)               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │Health Sim    │  │Chat Memory   │  │Child Profiles    │   │
-│  │(Real-time)   │  │(Per-child)   │  │(JSON Storage)    │   │
-│  └──────┬───────┘  └──────┬───────┘  └────────┬─────────┘   │
-│         │                 │                    │             │
-│         ▼                 ▼                    ▼             │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │                   🧠 BRAIN SERVICE                      ││
-│  │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  ││
-│  │  │  DeepSeek   │    │   Gemma 3   │    │  Local RAG  │  ││
-│  │  │  (Analysis) │    │ (Responses) │    │  (Safety)   │  ││
-│  │  └─────────────┘    └─────────────┘    └─────────────┘  ││
-│  └─────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
-```
+### 🎨 Frontend (React + TypeScript + CSS)
+- Kid Mode (Game UI)
+- Parent Dashboard
+- Leo Chat (Streaming)
+- Voice Input (Web Speech API)
+
+⬇️ communicates with
+
+### ⚡ Backend (FastAPI + Python)
+- Health Simulator (Real-time)
+- Chat Memory (Per-child)
+- Child Profiles (JSON Storage)
+
+⬇️ powered by
+
+### 🧠 AI Brain Service
+- DeepSeek (Health Analysis)
+- Gemma 3 (Kid-Friendly Responses)
+- Local RAG (Medical Safety)
+
 
 ---
 
@@ -137,6 +130,7 @@ cp .env.example .env
 
 # Add your API keys
 TELUS_API_BASE="https://3ca9s.paas.ai.telus.com"
+QWEN_API_KEY="your_qwen_key"
 GEMMA_API_KEY="your_gemma_key"
 DEEPSEEK_API_KEY="your_deepseek_key"
 ```
@@ -148,8 +142,11 @@ pip install -r requirements.txt
 
 # Run the FastAPI server
 python -m uvicorn backend.main:app --reload
+
+# Run the mock data
+python -m backend.sensor_stream
 ```
-Backend runs at: `http://localhost:8000`
+
 
 ### 4. Start the Frontend
 ```bash
@@ -162,7 +159,6 @@ npm install
 # Start development server
 npm run dev
 ```
-Frontend runs at: `http://localhost:5173`
 
 ### 5. Open in Browser
 Visit `http://localhost:5173` and start exploring!
@@ -238,10 +234,20 @@ Team/
 - Multi-model architecture for safety and engagement
 - Per-child memory and parent instruction following
 
-### Impact Potential
-- Reduces anxiety around chronic conditions
+## 🌍 Impact & Use Cases
+
+### Real-World Impact
+- Reduces anxiety for children managing chronic conditions
 - Improves medication adherence through gamification
-- Empowers parents with insights and control
+- Gives parents peace of mind with real-time insights
+
+### Use Cases
+- Daily diabetes management for children
+- Asthma monitoring and trigger awareness
+- Emotional support during school, play, and sleep
+- Multi-child health tracking for families
+- Safe, guided health conversations without medical jargon
+
 
 ---
 

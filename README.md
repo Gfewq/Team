@@ -261,6 +261,7 @@ Team/
 | Natasha Krishnakanth | natashakk0602 |
 
 Built with ❤️ for TELUS Hackathon 2026
+
 ---
 
 ## 📄 License

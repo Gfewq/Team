@@ -84,6 +84,13 @@ class HealthLog(BaseModel):
     metadata: Dict[str, Any]
     safety_status: Optional[str] = None
     health_score: Optional[float] = None
+    # Optional enrichments (sent by sensor stream / simulator)
+    child_id: Optional[str] = None
+    llm_reasoning: Optional[str] = None
+    trend: Optional[str] = None
+    anomaly_score: Optional[float] = None
+    correlation_tags: Optional[List[str]] = None
+    statistics: Optional[Dict[str, Any]] = None
     # We add a catch-all for extra fields so it doesn't crash
     class Config:
         extra = "ignore"

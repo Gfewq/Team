@@ -54,6 +54,28 @@ EVENTS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "events.j
 # Active simulators (for background simulation tasks)
 active_simulators: dict = {}
 
+
+@app.on_event("startup")
+def _seed_demo_child_if_empty():
+    """
+    Ensure a freshly-cloned repo has at least one child profile,
+    so the frontend dashboard isn't empty on first run.
+    """
+    try:
+        children = list_children()
+        if children:
+            return
+        create_child(ChildProfileCreate(
+            name="Maya",
+            age=7,
+            condition="none",
+            parent_name="Demo Parent",
+        ))
+        print("✅ Seeded demo child profile (Maya)")
+    except Exception as e:
+        # Never fail startup just because demo data couldn't be created
+        print(f"⚠️ Could not seed demo child: {e}")
+
 def load_latest_events(limit: int = 50) -> List[dict]:
     """Load the latest events from events.jsonl"""
     events = []
@@ -279,12 +301,15 @@ async def chat_stream(user_msg: UserMessage):
 @app.post("/api/log/health")
 def log_health(log: HealthLog):
     global user_stats
-    
-# 1. Update Game Stats based on Health Score
-    if log.health_score:
-        user_stats["xp"] += int(log.health_score / 10) # 100 health = 10 XP
-    
-    # 2. Update Status Text based on Event Type
+
+    # Normalize / compute XP gained
+    xp_gained = int((log.health_score or 50) / 10)  # 100 health ~= 10 XP
+    xp_gained = max(1, xp_gained)
+
+    # 1) Update global gamification state (legacy / demo)
+    user_stats["xp"] += xp_gained
+
+    # 2) Update Status Text based on safety status
     if log.safety_status == "DANGER":
         user_stats["status"] = "Needs Help! 🚨"
     elif log.safety_status == "MONITOR":
@@ -292,21 +317,48 @@ def log_health(log: HealthLog):
     else:
         user_stats["status"] = "Super Strong 🦁"
 
-    # 3. Dynamic Avatar State (For the UI to react)
-    # We send this back so the frontend knows if Leo should look sad/happy
+    # 3) Dynamic Avatar State (For the UI to react)
     avatar_mood = "happy"
     if log.event_type == "glucose_drop" or log.safety_status == "DANGER":
         avatar_mood = "worried"
-    
-    # Check for level up
+
+    # Check for global level up
     if user_stats["xp"] >= user_stats["level"] * 100:
         user_stats["level"] += 1
-        user_stats["xp"] = 0
-    
+        user_stats["xp"] = user_stats["xp"] - ((user_stats["level"] - 1) * 100)
+
+    # Persist the incoming event so the frontend can render live data.
+    event_dict = log.model_dump()
+
+    # Store in global log list (used by /api/logs/health)
+    health_logs.append(event_dict)
+
+    # Route to child history if possible (frontend primarily uses per-child endpoints)
+    child_id = event_dict.get("child_id")
+    if not child_id:
+        # If the stream didn't specify a child, default to the first registered child.
+        children = list_children()
+        if children:
+            child_id = children[0].id
+            event_dict["child_id"] = child_id
+
+    if child_id and get_child(child_id):
+        append_event_to_history(child_id, event_dict)
+        update_child_stats(child_id, xp_gain=xp_gained)
+    else:
+        # Legacy fallback: write to events.jsonl so global /api/health/* endpoints can update.
+        try:
+            Path(EVENTS_FILE).parent.mkdir(parents=True, exist_ok=True)
+            with open(EVENTS_FILE, "a", encoding="utf-8") as f:
+                f.write(json.dumps(event_dict) + "\n")
+        except Exception as e:
+            print(f"Error writing to events file: {e}")
+
     return {
-        "event": "LOGGED", 
-        "xp_gained": int(log.health_score / 10) if log.health_score else 5,
-        "avatar_mood": avatar_mood
+        "event": "LOGGED",
+        "xp_gained": xp_gained,
+        "avatar_mood": avatar_mood,
+        "child_id": child_id,
     }
 
 @app.get("/api/logs/health")

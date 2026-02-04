@@ -3,69 +3,14 @@ import { MoodEntry } from './MoodTracker';
 import { Child } from './ChildSelector';
 import './ParentDashboard.css';
 
-interface Message {
-  role: string;
-  text: string;
-  timestamp?: Date;
-}
-
-interface HealthLog {
-  metric_type: string;
-  value: number;
-  unit: string;
-  timestamp: Date;
-}
-
-interface HealthMetric {
-  value: number;
-  unit: string;
-  status: string;
-}
-
-interface HealthMetrics {
-  glucose: HealthMetric;
-  heart_rate: HealthMetric;
-  mood: HealthMetric;
-  activity: HealthMetric;
-  spo2: HealthMetric;
-  asthma_risk: HealthMetric;
-}
-
-interface HealthEvent {
-  id: string;
-  type: string;
-  value: number;
-  unit: string;
-  urgency: string;
-  safety_status: string;
-  health_score: number;
-  anomaly_score: number;
-  trend: string;
-  reasoning: string;
-  timestamp: string;
-  correlations: string[];
-}
-
-interface SimulatorAlert {
-  id: string;
-  type: string;
-  value: number;
-  unit: string;
-  severity: string;
-  message: string;
-  timestamp: string;
-  health_score: number;
-  urgency: string;
-}
-
-interface EngagementData {
-  totalSessions: number;
-  currentStreak: number;
-  longestStreak: number;
-  avgMessagesPerDay: number;
-  lastActiveDate: Date | null;
-  dailyActivity: Record<string, number>;
-}
+import {
+  Message,
+  HealthLog,
+  HealthMetrics,
+  HealthEvent,
+  SimulatorAlert,
+  EngagementData
+} from '../types';
 
 interface ParentDashboardProps {
   selectedChild: Child | null;
@@ -78,17 +23,17 @@ interface ParentDashboardProps {
   safetyStatus?: string;
   healthEvents?: HealthEvent[];
   simulatorAlerts?: SimulatorAlert[];
-  medications?: {type: string; time: string; taken: boolean}[];
-  onMedicationsUpdate?: (meds: {type: string; time: string; taken: boolean}[]) => void;
+  medications?: { type: string; time: string; taken: boolean }[];
+  onMedicationsUpdate?: (meds: { type: string; time: string; taken: boolean }[]) => void;
   onClose: () => void;
 }
 
-export default function ParentDashboard({ 
+export default function ParentDashboard({
   selectedChild,
-  chatHistory, 
-  moodHistory, 
-  healthLogs = [],
-  engagementData,
+  chatHistory,
+  moodHistory,
+  healthLogs: _healthLogs = [],
+  engagementData: _engagementData,
   healthMetrics: initialMetrics,
   healthScore: initialScore = 75,
   safetyStatus: initialStatus = 'SAFE',
@@ -96,13 +41,13 @@ export default function ParentDashboard({
   simulatorAlerts: initialAlerts = [],
   medications = [],
   onMedicationsUpdate,
-  onClose 
+  onClose
 }: ParentDashboardProps) {
-  
+
   const [activeTab, setActiveTab] = useState<'overview' | 'health' | 'medications'>('overview');
-  const [medicationsDue, setMedicationsDue] = useState<{type: string; time: string; taken: boolean}[]>(medications);
+  const [medicationsDue, setMedicationsDue] = useState<{ type: string; time: string; taken: boolean }[]>(medications);
   const [lastRefresh, setLastRefresh] = useState(new Date());
-  
+
   // Live data state - poll directly from API
   const [liveMetrics, setLiveMetrics] = useState<HealthMetrics | null>(initialMetrics || null);
   const [liveScore, setLiveScore] = useState(initialScore);
@@ -138,12 +83,12 @@ export default function ParentDashboard({
           const data = await historyRes.json();
           if (data.events && Array.isArray(data.events)) {
             setLiveEvents(data.events);
-            
+
             // Extract LATEST metrics from events (sorted by timestamp, most recent first)
-            const sortedEvents = [...data.events].sort((a, b) => 
+            const sortedEvents = [...data.events].sort((a, b) =>
               new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
             );
-            
+
             // Default metrics
             const metrics: HealthMetrics = {
               glucose: { value: 5.5, unit: 'mmol/L', status: 'normal' },
@@ -153,14 +98,14 @@ export default function ParentDashboard({
               spo2: { value: 98, unit: '%', status: 'normal' },
               asthma_risk: { value: 0.2, unit: 'score', status: 'low' }
             };
-            
+
             // Track which metrics we've found (only use most recent)
             const found = { glucose: false, heart: false, mood: false, oxygen: false, asthma: false, activity: false };
-            
+
             for (const event of sortedEvents) {
               const type = (event.type || event.event_type || '').toLowerCase();
               const value = event.value;
-              
+
               if (!found.glucose && (type.includes('glucose') || type.includes('blood_sugar'))) {
                 found.glucose = true;
                 metrics.glucose = {
@@ -272,9 +217,9 @@ export default function ParentDashboard({
           .map(e => {
             // Get medication type from metadata
             const medType = e.metadata?.medication_type || 'medication';
-            const displayType = medType.includes('inhaler') ? 'Inhaler' : 
-                               medType === 'insulin' ? 'Insulin' : 
-                               medType.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+            const displayType = medType.includes('inhaler') ? 'Inhaler' :
+              medType === 'insulin' ? 'Insulin' :
+                medType.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
             return {
               type: displayType,
               time: e.timestamp,
@@ -288,7 +233,7 @@ export default function ParentDashboard({
 
   // Mark medication as taken
   const markMedicationTaken = async (index: number) => {
-    setMedicationsDue(prev => 
+    setMedicationsDue(prev =>
       prev.map((m, i) => i === index ? { ...m, taken: true } : m)
     );
   };
@@ -320,12 +265,12 @@ export default function ParentDashboard({
     const danger = liveEvents.filter(e => e.safety_status === 'DANGER').length;
     const monitor = liveEvents.filter(e => e.safety_status === 'MONITOR').length;
     const safe = liveEvents.filter(e => e.safety_status === 'SAFE').length;
-    
+
     const glucoseEvents = liveEvents.filter(e => e.type?.includes('glucose'));
-    const avgGlucose = glucoseEvents.length > 0 
-      ? glucoseEvents.reduce((sum, e) => sum + e.value, 0) / glucoseEvents.length 
+    const avgGlucose = glucoseEvents.length > 0
+      ? glucoseEvents.reduce((sum, e) => sum + e.value, 0) / glucoseEvents.length
       : 5.5;
-    
+
     const hrEvents = liveEvents.filter(e => e.type?.includes('heart'));
     const avgHR = hrEvents.length > 0
       ? hrEvents.reduce((sum, e) => sum + e.value, 0) / hrEvents.length
@@ -369,7 +314,7 @@ export default function ParentDashboard({
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
+
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
@@ -390,7 +335,7 @@ export default function ParentDashboard({
             )}
           </div>
           <div className="header-right">
-            <div 
+            <div
               className="safety-badge"
               style={{ backgroundColor: getStatusColor(liveStatus) }}
             >
@@ -403,19 +348,19 @@ export default function ParentDashboard({
 
         {/* Tabs */}
         <div className="tab-navigation">
-          <button 
+          <button
             className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
             📈 Live Metrics
           </button>
-          <button 
+          <button
             className={`tab-btn ${activeTab === 'health' ? 'active' : ''}`}
             onClick={() => setActiveTab('health')}
           >
             📋 Event History
           </button>
-          <button 
+          <button
             className={`tab-btn ${activeTab === 'medications' ? 'active' : ''}`}
             onClick={() => setActiveTab('medications')}
           >
@@ -431,7 +376,7 @@ export default function ParentDashboard({
           <div className="dashboard-content">
             {/* Health Score Banner */}
             <div className="health-score-banner">
-              <div className="score-circle" style={{ 
+              <div className="score-circle" style={{
                 background: `conic-gradient(${getStatusColor(liveStatus)} ${liveScore * 3.6}deg, #e0e0e0 0deg)`
               }}>
                 <div className="score-inner">
@@ -503,14 +448,14 @@ export default function ParentDashboard({
                     </span>
                     <span className="metric-unit">Last reported</span>
                   </div>
-                  <div className={`metric-status ${moodHistory.length > 0 ? 
-                    (moodHistory[moodHistory.length - 1].label === 'Sad' || moodHistory[moodHistory.length - 1].label === 'Sick' ? 'low' : 
-                     moodHistory[moodHistory.length - 1].label === 'Tired' ? 'moderate' : 'good') : 'neutral'}`}>
-                    {moodHistory.length > 0 ? 
-                      (moodHistory[moodHistory.length - 1].label === 'Happy' ? 'great' : 
-                       moodHistory[moodHistory.length - 1].label === 'Okay' ? 'okay' :
-                       moodHistory[moodHistory.length - 1].label === 'Tired' ? 'tired' :
-                       moodHistory[moodHistory.length - 1].label === 'Sad' ? 'low' : 'needs attention') : 'not set'}
+                  <div className={`metric-status ${moodHistory.length > 0 ?
+                    (moodHistory[moodHistory.length - 1].label === 'Sad' || moodHistory[moodHistory.length - 1].label === 'Sick' ? 'low' :
+                      moodHistory[moodHistory.length - 1].label === 'Tired' ? 'moderate' : 'good') : 'neutral'}`}>
+                    {moodHistory.length > 0 ?
+                      (moodHistory[moodHistory.length - 1].label === 'Happy' ? 'great' :
+                        moodHistory[moodHistory.length - 1].label === 'Okay' ? 'okay' :
+                          moodHistory[moodHistory.length - 1].label === 'Tired' ? 'tired' :
+                            moodHistory[moodHistory.length - 1].label === 'Sad' ? 'low' : 'needs attention') : 'not set'}
                   </div>
                 </div>
 
@@ -519,12 +464,12 @@ export default function ParentDashboard({
                   <div className="metric-info">
                     <span className="metric-label">Activity</span>
                     <span className="metric-value">
-                      {currentMetrics.activityStatus === 'active' ? 'Active' : 
-                       currentMetrics.activityStatus === 'sedentary' ? 'Resting' : 'Moderate'}
+                      {currentMetrics.activityStatus === 'active' ? 'Active' :
+                        currentMetrics.activityStatus === 'sedentary' ? 'Resting' : 'Moderate'}
                     </span>
                     <span className="metric-unit">
-                      {currentMetrics.activityStatus === 'sedentary' ? 'Encourage movement' : 
-                       currentMetrics.activityStatus === 'active' ? 'Great energy!' : 'Normal activity'}
+                      {currentMetrics.activityStatus === 'sedentary' ? 'Encourage movement' :
+                        currentMetrics.activityStatus === 'active' ? 'Great energy!' : 'Normal activity'}
                     </span>
                   </div>
                   <div className={`metric-status ${currentMetrics.activityStatus}`}>
@@ -610,7 +555,7 @@ export default function ParentDashboard({
                 <h3>📋 Health Event History</h3>
                 <span className="event-count">{liveEvents.length} events</span>
               </div>
-              
+
               {liveEvents.length === 0 ? (
                 <div className="no-data">
                   <span className="no-data-icon">📊</span>
@@ -684,7 +629,7 @@ export default function ParentDashboard({
                         <span className="med-time">{formatTimeAgo(med.time)}</span>
                       </div>
                       {!med.taken && (
-                        <button 
+                        <button
                           className="med-take-btn"
                           onClick={() => markMedicationTaken(i)}
                         >
@@ -703,7 +648,7 @@ export default function ParentDashboard({
               <div className="quick-add-med">
                 <h4>Quick Log</h4>
                 <div className="quick-buttons">
-                  <button 
+                  <button
                     className="quick-med-btn"
                     onClick={() => setMedicationsDue(prev => [...prev, {
                       type: 'Insulin',
@@ -713,7 +658,7 @@ export default function ParentDashboard({
                   >
                     💉 Log Insulin
                   </button>
-                  <button 
+                  <button
                     className="quick-med-btn"
                     onClick={() => setMedicationsDue(prev => [...prev, {
                       type: 'Inhaler',
@@ -723,7 +668,7 @@ export default function ParentDashboard({
                   >
                     🌬️ Log Inhaler
                   </button>
-                  <button 
+                  <button
                     className="quick-med-btn"
                     onClick={() => setMedicationsDue(prev => [...prev, {
                       type: 'Snack',

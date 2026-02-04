@@ -306,6 +306,7 @@ RULES:
 - Always end with encouragement or a question to keep them engaged
 - Add 1-2 relevant emojis
 - FOLLOW any parent instructions above carefully
+- DO NOT use markdown formatting like *bold* or **asterisks** - just plain text
 
 Child said: "{user_input.message}"
 
@@ -332,6 +333,7 @@ YOUR ROLE:
 - Keep responses concise (2-3 sentences)
 - Do NOT use childish language or excessive emojis
 - Be warm but professional
+- DO NOT use markdown formatting like *bold* or **asterisks** - just plain text
 
 Parent asked: "{user_input.message}"
 

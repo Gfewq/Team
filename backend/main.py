@@ -20,6 +20,10 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI(title="Leo Health API", version="2.0")
 
@@ -318,9 +322,30 @@ def get_health_logs(limit: int = 50):
     }
 
 
+
 # ============================================================================
 # CHILD PROFILE APIs
 # ============================================================================
+
+class XPUpdate(BaseModel):
+    amount: int
+    reason: str
+
+@app.post("/api/children/{child_id}/xp")
+def api_add_xp(child_id: str, update: XPUpdate):
+    """Add XP to a child's profile"""
+    child = get_child(child_id)
+    if not child:
+        raise HTTPException(status_code=404, detail=f"Child {child_id} not found")
+    
+    updated_child = update_child_stats(child_id, xp_gain=update.amount)
+    return {
+        "message": "XP updated", 
+        "xp_gained": update.amount,
+        "new_xp": updated_child.xp, 
+        "level": updated_child.level,
+        "reason": update.reason
+    }
 
 @app.get("/api/children", response_model=List[ChildProfile])
 def api_list_children():
@@ -806,3 +831,4 @@ def api_create_medication_reminder(child_id: str, medication_type: str):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

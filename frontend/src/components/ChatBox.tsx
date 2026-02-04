@@ -2,11 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import './ChatBox.css';
 import { MoodEntry } from './MoodTracker';
 
-interface Message {
-  role: string;
-  text: string;
-  timestamp?: Date;
-}
+import { Message } from '../types';
 
 interface ChatBoxProps {
   onSpeakingStateChange: (isSpeaking: boolean) => void;
@@ -19,20 +15,21 @@ interface ChatBoxProps {
   childId?: string;
   childCondition?: string;
   childAge?: number;
+  onMessageComplete?: (message: string) => void;
 }
 
-export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMood, onHelpDetected, sosTrigger, isKidMode = true, childName, childId, childCondition = 'diabetes', childAge = 7 }: ChatBoxProps) {
+export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMood, onHelpDetected, sosTrigger, isKidMode = true, childName, childId, childCondition = 'diabetes', childAge = 7, onMessageComplete }: ChatBoxProps) {
   const getInitialMessage = () => {
     if (isKidMode) {
       return `Hi${childName ? ` ${childName}` : ''}! I'm Leo! How is your tummy feeling? 🦁`;
     }
     return `Hello. I'm Leo, ${childName ? `${childName}'s` : 'your child\'s'} health companion. I can help answer questions about their health management. How may I assist you today?`;
   };
-  
+
   const [messages, setMessages] = useState<Message[]>([
     { role: 'leo', text: getInitialMessage(), timestamp: new Date() }
   ]);
-  
+
   // Reset messages when mode changes
   useEffect(() => {
     setMessages([
@@ -43,89 +40,90 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTranscriptRef = useRef<string>('');
-  
+
   // Initialize Speech Recognition
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognitionAPI();
-      recognitionRef.current.continuous = true;  // Keep listening
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'en-US';
-      
-      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+      const recognition = new SpeechRecognitionAPI();
+      recognitionRef.current = recognition;
+      recognition.continuous = true;  // Keep listening
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
         let transcript = '';
         let isFinal = false;
-        
+
         for (let i = 0; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript;
           if (event.results[i].isFinal) {
             isFinal = true;
           }
         }
-        
+
         setInput(transcript);
         lastTranscriptRef.current = transcript;
-        
+
         // Reset silence timeout on each result
         if (silenceTimeoutRef.current) {
           clearTimeout(silenceTimeoutRef.current);
         }
-        
+
         // If we got a final result, wait 1.5 seconds of silence before stopping
         if (isFinal) {
           silenceTimeoutRef.current = setTimeout(() => {
             if (recognitionRef.current && lastTranscriptRef.current) {
-              recognitionRef.current.stop();
+              recognitionRef.current?.stop();
             }
           }, 1500); // 1.5 second delay after speech ends
         }
       };
-      
-      recognitionRef.current.onend = () => {
+
+      recognition.onend = () => {
         setIsRecording(false);
         if (silenceTimeoutRef.current) {
           clearTimeout(silenceTimeoutRef.current);
         }
       };
-      
-      recognitionRef.current.onerror = () => {
+
+      recognition.onerror = () => {
         setIsRecording(false);
         if (silenceTimeoutRef.current) {
           clearTimeout(silenceTimeoutRef.current);
         }
       };
     }
-    
+
     return () => {
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
       }
     };
   }, []);
-  
+
   const toggleRecording = () => {
     if (!recognitionRef.current) {
       alert('Speech recognition not supported in this browser. Try Chrome!');
       return;
     }
-    
+
     if (isRecording) {
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
       }
-      recognitionRef.current.stop();
+      recognitionRef.current?.stop();
       setIsRecording(false);
     } else {
       setInput('');
       lastTranscriptRef.current = '';
-      recognitionRef.current.start();
+      recognitionRef.current?.start();
       setIsRecording(true);
     }
   };
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -153,10 +151,10 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
         '😫': "Being tired is tough! Make sure to rest and drink water! 💧",
         '🤒': "Oh no, you're not feeling well! Should we tell a grown-up? 🏥",
       };
-      
+
       const response = moodResponses[currentMood.mood] || "Thanks for telling me how you feel!";
-      setMessages(prev => [...prev, { 
-        role: 'leo', 
+      setMessages(prev => [...prev, {
+        role: 'leo',
         text: response,
         timestamp: new Date()
       }]);
@@ -166,11 +164,22 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
   // React to SOS button being pressed
   useEffect(() => {
     if (sosTrigger && sosTrigger > 0) {
-      setMessages(prev => [...prev, { 
-        role: 'leo', 
+      setMessages(prev => [...prev, {
+        role: 'leo',
         text: "Oh no! Are you okay? 😰 I'm here for you! A grown-up can help - use the numbers on the screen! 🆘💕",
         timestamp: new Date()
       }]);
+
+      // Auto-trigger microphone so child can speak immediately
+      if (recognitionRef.current && !isRecording) {
+        // Short delay to let Leo start speaking first
+        setTimeout(() => {
+          setInput('');
+          lastTranscriptRef.current = '';
+          recognitionRef.current?.start();
+          setIsRecording(true);
+        }, 1000);
+      }
     }
   }, [sosTrigger]);
 
@@ -179,15 +188,18 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
 
     const userMsg = input;
     const timestamp = new Date();
-    
+
     // Check for help keyword
     if (userMsg.toLowerCase().includes('help')) {
       onHelpDetected?.();
     }
-    
+
     setMessages(prev => [...prev, { role: 'user', text: userMsg, timestamp }]);
+    setMessages(prev => [...prev, { role: 'leo', text: "...", timestamp: new Date() }]);
     setInput('');
     setIsTyping(true); // <--- Triggers Lion Mouth Open
+
+    let leoReply = "";
 
     try {
       const response = await fetch('http://localhost:8000/api/chat/stream', {
@@ -209,26 +221,23 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let leoReply = "";
-
-      setMessages(prev => [...prev, { role: 'leo', text: "...", timestamp: new Date() }]);
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         const chunk = decoder.decode(value);
         const lines = chunk.split('\n');
-        
+
         for (const line of lines) {
           if (line.trim() === '') continue;
           if (line.startsWith('data: ')) {
             const text = line.replace('data: ', '').trim();
             if (text === "[DONE]") break;
-            
+
             try {
-              const parsed = JSON.parse(text); 
-              leoReply += parsed; 
+              const parsed = JSON.parse(text);
+              leoReply += parsed;
             } catch (e) {
               leoReply += text.replace(/^"|"$/g, '');
             }
@@ -245,6 +254,9 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
       console.error("Chat Error", e);
     } finally {
       setIsTyping(false); // <--- Triggers Lion Mouth Close
+      if (onMessageComplete && leoReply) {
+        onMessageComplete(leoReply);
+      }
     }
   };
 
@@ -260,14 +272,14 @@ export default function ChatBox({ onSpeakingStateChange, onChatUpdate, currentMo
       </div>
 
       <div className="input-area">
-        <input 
+        <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
           placeholder="Talk to Leo..."
           disabled={isTyping || isRecording}
         />
-        <button 
+        <button
           className={`mic-button ${isRecording ? 'recording' : ''}`}
           onClick={toggleRecording}
           disabled={isTyping}

@@ -1,9 +1,12 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import ChatBox from './components/ChatBox';
-import LeoAvatar from './components/LeoAvatar'; 
+import LeoAvatar from './components/LeoAvatar';
 import MoodTracker, { MoodEntry } from './components/MoodTracker';
 import ParentDashboard from './components/ParentDashboard';
 import ChildSelector, { Child } from './components/ChildSelector';
+import VisionMode from './components/VisionMode';
+import ScavengerHuntMode from './components/ScavengerHuntMode';
+import { useVoice } from './hooks/useVoice';
 import './App.css';
 
 // 🌟 Motivational Thoughts of the Day
@@ -60,76 +63,15 @@ const THOUGHTS_OF_THE_DAY = [
   "Today, be your best self! 🌟"
 ];
 
-// 📊 Define the shape of our data (Matches Python Backend)
-interface UserStats {
-  xp: number;
-  level: number;
-  status: string;
-}
-
-interface Message {
-  role: string;
-  text: string;
-  timestamp?: Date;
-}
-
-interface HealthLog {
-  metric_type: string;
-  value: number;
-  unit: string;
-  timestamp: Date;
-}
-
-interface HealthMetric {
-  value: number;
-  unit: string;
-  status: string;
-}
-
-interface HealthMetrics {
-  glucose: HealthMetric;
-  heart_rate: HealthMetric;
-  mood: HealthMetric;
-  activity: HealthMetric;
-  spo2: HealthMetric;
-  asthma_risk: HealthMetric;
-}
-
-interface HealthEvent {
-  id: string;
-  type: string;
-  value: number;
-  unit: string;
-  urgency: string;
-  safety_status: string;
-  health_score: number;
-  anomaly_score: number;
-  trend: string;
-  reasoning: string;
-  timestamp: string;
-  correlations: string[];
-}
-
-interface SimulatorAlert {
-  id: string;
-  type: string;
-  value: number;
-  unit: string;
-  severity: string;
-  message: string;
-  timestamp: string;
-  health_score: number;
-  urgency: string;
-}
-
-interface EngagementData {
-  totalSessions: number;
-  currentStreak: number;
-  longestStreak: number;
-  avgMessagesPerDay: number;
-  lastActiveDate: Date | null;
-  dailyActivity: Record<string, number>;
-}
+import {
+  UserStats,
+  Message,
+  HealthLog,
+  HealthMetrics,
+  HealthEvent,
+  SimulatorAlert,
+  EngagementData
+} from './types';
 
 // LocalStorage keys
 const MOOD_HISTORY_KEY = 'leo_mood_history';
@@ -139,17 +81,20 @@ const ENGAGEMENT_KEY = 'leo_engagement';
 const MEDICATIONS_KEY = 'leo_medications';
 
 function App() {
+  // Voice Hook
+  const { speak, toggleMute, isMuted } = useVoice();
+
   // 1. STATE: Health Stats & Speaking Logic
   const [stats, setStats] = useState<UserStats>({ xp: 0, level: 1, status: 'Connecting...' });
   const [isLeoTalking, setIsLeoTalking] = useState(false);
-  
+
   // 2. STATE: Mood Tracking
   const [currentMood, setCurrentMood] = useState<MoodEntry | null>(null);
   const [moodHistory, setMoodHistory] = useState<MoodEntry[]>([]);
-  
+
   // 3. STATE: Chat History (for parent dashboard)
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
-  
+
   // 4. STATE: Parent Dashboard visibility
   const [showDashboard, setShowDashboard] = useState(false);
 
@@ -183,11 +128,11 @@ function App() {
   const [passwordError, setPasswordError] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [securityAnswer, setSecurityAnswer] = useState('');
-  
+
   const PARENT_PASSWORD = "1234"; // Demo password
   const SECURITY_QUESTION = "What is Leo's favorite animal?";
   const SECURITY_ANSWER = "lion"; // Case insensitive
-  
+
   const handleModeToggle = () => {
     if (isKidMode) {
       // Switching to parent mode - require password
@@ -199,7 +144,7 @@ function App() {
       setIsKidMode(true);
     }
   };
-  
+
   const handlePasswordSubmit = () => {
     if (passwordInput === PARENT_PASSWORD) {
       setIsKidMode(false);
@@ -212,7 +157,7 @@ function App() {
       setPasswordInput('');
     }
   };
-  
+
   const handleSecurityAnswer = () => {
     if (securityAnswer.toLowerCase().trim() === SECURITY_ANSWER) {
       // Correct answer - show password and go back
@@ -225,7 +170,7 @@ function App() {
       setSecurityAnswer('');
     }
   };
-  
+
   const handleClosePasswordModal = () => {
     setShowPasswordModal(false);
     setShowForgotPassword(false);
@@ -235,14 +180,18 @@ function App() {
   };
 
   // 10. STATE: Medications (persisted)
-  const [medications, setMedications] = useState<{type: string; time: string; taken: boolean}[]>([]);
+  const [medications, setMedications] = useState<{ type: string; time: string; taken: boolean }[]>([]);
 
   // 11. STATE: Help popup visibility and Leo's worried expression
   const [showHelpPopup, setShowHelpPopup] = useState(false);
   const [leoWorried, setLeoWorried] = useState(false);
-  
+
   // 12. STATE: SOS trigger counter - increments when SOS button is clicked
   const [sosTrigger, setSosTrigger] = useState(0);
+
+  // 13. STATE: Vision Mode
+  const [showVision, setShowVision] = useState(false);
+  const [showScavengerHunt, setShowScavengerHunt] = useState(false);
 
   // Calculate engagement data from chat history
   const calculateEngagement = useCallback((messages: Message[]): EngagementData => {
@@ -254,7 +203,7 @@ function App() {
         const date = new Date(msg.timestamp);
         const dateStr = date.toISOString().split('T')[0];
         const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
-        
+
         uniqueDates.add(dateStr);
         days[dayName] = (days[dayName] || 0) + 1;
       }
@@ -265,20 +214,20 @@ function App() {
     let currentStreak = 0;
     let longestStreak = 0;
     let tempStreak = 0;
-    
+
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-    
+
     // Check if active today or yesterday to start counting streak
     if (sortedDates.includes(today) || sortedDates.includes(yesterday)) {
       for (let i = 0; i < sortedDates.length; i++) {
         const currentDate = new Date(sortedDates[i]);
         const prevDate = i > 0 ? new Date(sortedDates[i - 1]) : new Date();
-        
-        const diffDays = i === 0 
+
+        const diffDays = i === 0
           ? Math.floor((new Date().getTime() - currentDate.getTime()) / 86400000)
           : Math.floor((prevDate.getTime() - currentDate.getTime()) / 86400000);
-        
+
         if (diffDays <= 1) {
           tempStreak++;
           currentStreak = tempStreak;
@@ -288,7 +237,7 @@ function App() {
         }
       }
     }
-    
+
     if (tempStreak > longestStreak) longestStreak = tempStreak;
 
     const totalDays = uniqueDates.size || 1;
@@ -317,7 +266,7 @@ function App() {
     } catch (e) {
       console.log("Failed to load mood history");
     }
-    
+
     try {
       const savedChats = localStorage.getItem(CHAT_HISTORY_KEY);
       if (savedChats) {
@@ -375,14 +324,14 @@ function App() {
 
     const fetchStats = async () => {
       try {
-        const res = await fetch('http://localhost:8000/'); 
+        const res = await fetch('http://localhost:8000/');
         const data = await res.json();
         setStats(data.stats);
       } catch (e) {
         console.log("Backend offline (Leo is sleeping)");
       }
     };
-    
+
     fetchStats();
     const interval = setInterval(fetchStats, 2000);
     return () => clearInterval(interval);
@@ -397,20 +346,20 @@ function App() {
           const statsRes = await fetch(`http://localhost:8000/api/children/${selectedChild.id}/statistics`);
           if (statsRes.ok) {
             const data = await statsRes.json();
-            
+
             // Update stats from child's actual data
             setStats({
               xp: data.xp ?? selectedChild.xp,
               level: data.level ?? selectedChild.level,
-              status: data.danger_count > 0 ? 'Needs Help!' : 
-                      data.monitor_count > 0 ? 'Check In' : 'Super Strong!'
+              status: data.danger_count > 0 ? 'Needs Help!' :
+                data.monitor_count > 0 ? 'Check In' : 'Super Strong!'
             });
-            
+
             // Update health score
             if (typeof data.avg_health_score === 'number') {
               setHealthScore(data.avg_health_score);
             }
-            
+
             // Determine safety status from recent events
             if (data.danger_count > 0) {
               setSafetyStatus('DANGER');
@@ -427,7 +376,7 @@ function App() {
             const data = await historyRes.json();
             if (data.events && Array.isArray(data.events)) {
               setHealthEvents(data.events);
-              
+
               // Extract current metrics from recent events
               const metrics: HealthMetrics = {
                 glucose: { value: 5.5, unit: 'mmol/L', status: 'normal' },
@@ -437,7 +386,7 @@ function App() {
                 spo2: { value: 98, unit: '%', status: 'normal' },
                 asthma_risk: { value: 0.2, unit: 'score', status: 'low' }
               };
-              
+
               // Find most recent value for each metric type
               for (const event of data.events.slice().reverse()) {
                 const type = event.type || '';
@@ -485,7 +434,7 @@ function App() {
                 }
               }
               setHealthMetrics(metrics);
-              
+
               // Update health logs
               const newLogs: HealthLog[] = data.events
                 .filter((e: HealthEvent) => e && e.type && e.timestamp)
@@ -495,7 +444,7 @@ function App() {
                   unit: e.unit || '',
                   timestamp: new Date(e.timestamp)
                 }));
-              
+
               if (newLogs.length > 0) {
                 setHealthLogs(newLogs);
               }
@@ -574,18 +523,32 @@ function App() {
   };
 
   // Handle chat history updates
-  const handleChatUpdate = (messages: Message[]) => {
+  const handleChatUpdate = useCallback((messages: Message[]) => {
+    // PREVENT INFINITE LOOP: Only update if length changed or it's a new array reference that implies content change
+    // Using length check is simple and effective for a chat log
+    if (messages.length === chatHistory.length && messages.every((m, i) => m.text === chatHistory[i]?.text)) {
+      return;
+    }
+
+    // Check if there's a new message from Leo to speak
+    if (messages.length > chatHistory.length) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.role === 'assistant' && !isMuted) {
+        speak(lastMsg.text);
+      }
+    }
+
     setChatHistory(messages);
     localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
-    
+
     // Update engagement data
     const newEngagement = calculateEngagement(messages);
     setEngagementData(newEngagement);
     localStorage.setItem(ENGAGEMENT_KEY, JSON.stringify(newEngagement));
-  };
+  }, [chatHistory, isMuted, speak, calculateEngagement]);
 
   // Handle medication updates - now per-child
-  const handleMedicationsUpdate = useCallback((meds: {type: string; time: string; taken: boolean}[]) => {
+  const handleMedicationsUpdate = useCallback((meds: { type: string; time: string; taken: boolean }[]) => {
     setMedications(meds);
     // Save to child-specific key if child is selected
     const key = selectedChild ? `${MEDICATIONS_KEY}_${selectedChild.id}` : MEDICATIONS_KEY;
@@ -621,26 +584,47 @@ function App() {
     setTimeout(() => setLeoWorried(false), 5000);
   };
 
-  // 6. LOGIC: Determine Status Color
-  const getStatusClass = () => {
-    if (safetyStatus === 'DANGER') return 'status-danger';
-    if (safetyStatus === 'MONITOR') return 'status-warn';
-    if (stats.status && (stats.status.includes('Help') || stats.status.includes('Check'))) return 'status-warn';
-    return 'status-good';
-  };
 
-  // Get display status
-  const getDisplayStatus = () => {
-    if (safetyStatus === 'DANGER') return '⚠️ Alert';
-    if (safetyStatus === 'MONITOR') return '👀 Monitor';
-    return stats.status || 'Loading...';
-  };
 
   return (
     <div className={`app-wrapper ${isKidMode ? 'kid-mode' : 'detail-mode'} ${showHelpPopup || leoWorried ? 'help-mode' : ''}`}>
-      
+
+      {/* --- VISION MODE --- */}
+      {showVision && (
+        <VisionMode
+          onClose={() => setShowVision(false)}
+          onObjectDetected={(detected) => {
+            // If Leo sees something interesting, maybe he can say it?
+            if (detected.length > 0 && !isMuted) {
+              // Simple throttle could be added here to prevent spam
+            }
+          }}
+        />
+      )}
+
+      {/* --- SCAVENGER HUNT MODE --- */}
+      {showScavengerHunt && (
+        <ScavengerHuntMode
+          onClose={() => setShowScavengerHunt(false)}
+          onAddXP={(amount) => {
+            // 1. Optimistic UI update
+            setStats(prev => ({ ...prev, xp: prev.xp + amount }));
+            if (!isMuted) speak("Wow! You earned " + amount + " XP!");
+
+            // 2. Persist to Backend
+            if (selectedChild) {
+              fetch(`http://localhost:8000/api/children/${selectedChild.id}/xp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount, reason: 'Scavenger Hunt' })
+              }).catch(e => console.error("XP Save Failed", e));
+            }
+          }}
+        />
+      )}
+
       {/* --- FLOATING HELP BUTTON --- */}
-      <button 
+      <button
         className="floating-help-btn"
         onClick={() => {
           setShowHelpPopup(true);
@@ -652,26 +636,31 @@ function App() {
       >
         🆘
       </button>
-      
+
       {/* --- HUD BAR (Top) --- */}
       <div className="status-hud">
         {/* Child Selector */}
-        <ChildSelector 
+        <ChildSelector
           onChildSelect={handleChildSelect}
           selectedChild={selectedChild}
           isKidMode={isKidMode}
         />
 
-        {/* Kid-friendly stats */}
-        <div className="stat-pill level-pill">
-          <span className="stat-icon">⭐</span>
-          <span className="stat-value">Level {stats.level}</span>
-        </div>
-        
-        <div className="stat-pill xp-pill">
-          <span className="stat-icon">✨</span>
-          <span className="stat-value">{stats.xp} XP</span>
-        </div>
+        {/* Kid-friendly stats - Combined Level & XP Progress */}
+        {isKidMode && (
+          <div className="xp-progress-container" title={`Level ${stats.level} - ${stats.xp} XP / ${stats.level * 100} XP`}>
+            <div className="xp-info">
+              <span className="level-badge">⭐ {stats.level}</span>
+              <span className="xp-text">{stats.xp} / {stats.level * 100} XP</span>
+            </div>
+            <div className="xp-bar-bg">
+              <div
+                className="xp-bar-fill"
+                style={{ width: `${Math.min(100, (stats.xp / (stats.level * 100)) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Mood status - always visible, updates when mood is selected */}
         <div className={`stat-pill status-pill ${currentMood ? 'status-mood' : safetyStatus === 'DANGER' ? 'status-danger' : safetyStatus === 'MONITOR' ? 'status-warn' : 'status-good'}`}>
@@ -680,15 +669,15 @@ function App() {
           </span>
           <span className="stat-value">
             {currentMood?.label || (
-              safetyStatus === 'DANGER' ? "Let's check!" : 
-              safetyStatus === 'MONITOR' ? 'Doing okay' : 
-              'How are you?'
+              safetyStatus === 'DANGER' ? "Let's check!" :
+                safetyStatus === 'MONITOR' ? 'Doing okay' :
+                  'How are you?'
             )}
           </span>
         </div>
 
-        {/* Streak - always show for motivation */}
-        {(engagementData.currentStreak > 0 || (selectedChild?.streak || 0) > 0) && (
+        {/* Streak - show only in kid mode */}
+        {isKidMode && (engagementData.currentStreak > 0 || (selectedChild?.streak || 0) > 0) && (
           <div className="stat-pill streak-pill">
             🔥 {engagementData.currentStreak || selectedChild?.streak || 0} day{(engagementData.currentStreak || selectedChild?.streak || 0) !== 1 ? 's' : ''}!
           </div>
@@ -702,7 +691,7 @@ function App() {
         )}
 
         {/* Mode Toggle - switches between kid and parent mode */}
-        <button 
+        <button
           className={`mode-toggle-btn ${isKidMode ? 'kid' : 'parent'}`}
           onClick={handleModeToggle}
           title={isKidMode ? 'Switch to Parent Mode' : 'Switch to Kid Mode'}
@@ -710,13 +699,43 @@ function App() {
           {isKidMode ? '🔒' : '🧒'}
           <span>{isKidMode ? 'Parent Mode' : 'Kid Mode'}</span>
         </button>
-        
-        {/* Parent Dashboard Button */}
+
+        {/* Parent Dashboard Button - REMOVED FROM HUD (Moved to Bottom Left) */}
+
+        {/* Vision Mode Button - HIDDEN IN KID MODE AS REQUESTED */}
         {!isKidMode && (
-          <button className="parent-btn" onClick={() => setShowDashboard(true)}>
-            📊 Dashboard
+          <button
+            className="mode-toggle-btn vision-btn"
+            onClick={() => setShowVision(true)}
+            title="Enable Leo Vision"
+          >
+            👁️
+            <span>Leo Vision</span>
           </button>
         )}
+
+        {/* Scavenger Hunt Button */}
+        {isKidMode && (
+          <button
+            className="mode-toggle-btn game-btn"
+            onClick={() => setShowScavengerHunt(true)}
+            title="Play Scavenger Hunt"
+            style={{ marginLeft: '10px', background: 'linear-gradient(45deg, #FFD700, #FFA500)', color: '#000' }}
+          >
+            🕵️‍♂️
+            <span>Hunt</span>
+          </button>
+        )}
+
+        {/* Sound Toggle (Moved to end) */}
+        <button
+          className="mode-toggle-btn sound-btn"
+          onClick={toggleMute}
+          title={isMuted ? "Unmute Leo" : "Mute Leo"}
+          style={{ marginLeft: '10px' }}
+        >
+          {isMuted ? '🔇' : '🔊'}
+        </button>
       </div>
 
       {/* --- REAL-TIME HEALTH ALERT BANNER (kid-friendly) --- */}
@@ -744,11 +763,11 @@ function App() {
 
       {/* --- MAIN GAME SCENE --- */}
       <main className="game-scene">
-        
+
         {/* LEFT: The Avatar */}
         <div className="avatar-zone">
           <LeoAvatar isSpeaking={isLeoTalking} isWorried={leoWorried} />
-          
+
           {/* Thought of the Day - below avatar */}
           {isKidMode && (
             <div className="kid-health-display thought-of-day">
@@ -759,15 +778,15 @@ function App() {
               <div className="paw-icon">🐾</div>
             </div>
           )}
-          
+
           {/* Detailed Health Metrics Display (for detail mode) */}
           {!isKidMode && healthMetrics && (
             <div className="health-mini-display">
               <div className="mini-metric">
                 <span className="mini-icon">🍎</span>
                 <span className="mini-value">
-                  {typeof healthMetrics.glucose?.value === 'number' 
-                    ? healthMetrics.glucose.value.toFixed(1) 
+                  {typeof healthMetrics.glucose?.value === 'number'
+                    ? healthMetrics.glucose.value.toFixed(1)
                     : '--'}
                 </span>
                 <span className="mini-unit">mmol/L</span>
@@ -775,8 +794,8 @@ function App() {
               <div className="mini-metric">
                 <span className="mini-icon">❤️</span>
                 <span className="mini-value">
-                  {typeof healthMetrics.heart_rate?.value === 'number' 
-                    ? healthMetrics.heart_rate.value.toFixed(0) 
+                  {typeof healthMetrics.heart_rate?.value === 'number'
+                    ? healthMetrics.heart_rate.value.toFixed(0)
                     : '--'}
                 </span>
                 <span className="mini-unit">bpm</span>
@@ -784,8 +803,8 @@ function App() {
               <div className="mini-metric">
                 <span className="mini-icon">🫁</span>
                 <span className="mini-value">
-                  {typeof healthMetrics.spo2?.value === 'number' 
-                    ? healthMetrics.spo2.value.toFixed(0) 
+                  {typeof healthMetrics.spo2?.value === 'number'
+                    ? healthMetrics.spo2.value.toFixed(0)
                     : '--'}
                 </span>
                 <span className="mini-unit">%</span>
@@ -793,18 +812,18 @@ function App() {
             </div>
           )}
         </div>
-        
+
         {/* RIGHT: Chat & Mood */}
         <div className="chat-zone">
           {/* 😊 Mood Tracker - only show in kid mode */}
           {isKidMode && (
-            <MoodTracker 
-              onMoodSelect={handleMoodSelect} 
+            <MoodTracker
+              onMoodSelect={handleMoodSelect}
               currentMood={currentMood}
             />
           )}
           {/* 🗣️ ChatBox tells App when it starts/stops typing */}
-          <ChatBox 
+          <ChatBox
             onSpeakingStateChange={setIsLeoTalking}
             onChatUpdate={handleChatUpdate}
             currentMood={currentMood}
@@ -815,6 +834,11 @@ function App() {
             childId={selectedChild?.id}
             childCondition={selectedChild?.condition}
             childAge={selectedChild?.age}
+            onMessageComplete={(msg) => {
+              if (!isMuted) {
+                speak(msg);
+              }
+            }}
           />
         </div>
 
@@ -862,7 +886,7 @@ function App() {
           </div>
         </div>
       )}
-      
+
       {/* Password Modal for Parent Mode */}
       {showPasswordModal && (
         <div className="password-modal-overlay" onClick={handleClosePasswordModal}>
@@ -888,7 +912,7 @@ function App() {
                   <button className="password-submit" onClick={handlePasswordSubmit}>
                     Unlock 🔓
                   </button>
-                  <button 
+                  <button
                     className="forgot-password-link"
                     onClick={() => {
                       setShowForgotPassword(true);
@@ -913,7 +937,7 @@ function App() {
                   <button className="password-submit" onClick={handleSecurityAnswer}>
                     Verify Answer ✓
                   </button>
-                  <button 
+                  <button
                     className="forgot-password-link"
                     onClick={() => {
                       setShowForgotPassword(false);
@@ -929,6 +953,13 @@ function App() {
           </div>
         </div>
       )}
+      {/* --- PARENT BUTTON (Fixed Bottom Left) --- */}
+      {!isKidMode && (
+        <button className="fixed-parent-btn" onClick={() => setShowDashboard(true)}>
+          🔒 Parent Mode
+        </button>
+      )}
+
     </div>
   );
 }
